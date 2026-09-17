@@ -1,8 +1,7 @@
-# Godot 4 .gitignore
-/.godot/*
-!/.godot/imported
-!/.godot/editor_layout.cfg
+# Godot 4+ 缓存/生成数据，完全忽略
+/.godot/
 
+# Godot 导入/临时文件
 *.import
 *.tmp
 *.bak
