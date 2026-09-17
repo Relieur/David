@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://3qgb0nl271qd"]
+
+[ext_resource type="Texture2D" uid="uid://cfwuvt5cg8piu" path="res://textures/life.png" id="1_uj3ms"]
+
+[node name="TextureRect" type="TextureRect" unique_id=55588742]
+offset_transform_enabled = true
+texture = ExtResource("1_uj3ms")
