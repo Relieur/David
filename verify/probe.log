@@ -1,0 +1,36 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+=== A. InputMap 实际注册情况 ===
+  move_left 存在=true 事件数=1 ["keycode=0 physical=65"]
+  move_right 存在=true 事件数=1 ["keycode=0 physical=68"]
+  move_up 存在=true 事件数=1 ["keycode=0 physical=87"]
+  move_down 存在=true 事件数=1 ["keycode=0 physical=83"]
+
+=== B. 玩家节点 ===
+  节点存在=true  class=RigidBody2D
+  脚本=(res://script/player.gd):<GDScript#-9223372009541466664>
+  global_position=(0.0, 1.905556)
+  freeze=false freeze_mode=0
+  gravity_scale=1.0
+  linear_velocity 初值=(0.0, 0.0)
+  collision_layer=1 collision_mask=1
+  CollisionShape2D=CollisionShape2D:<CollisionShape2D#28236056018> shape=(res://player.tscn::RectangleShape2D_40dut):<RectangleShape2D#-9223372009088481827>
+  形状尺寸=(20.0, 20.0)
+  _physics_process 是否存在=true
+
+=== C. TileMapLayer 碰撞配置 ===
+  collision_enabled=true
+  已用格子数=16342
+
+=== D. 静止 30 帧（不按任何键）===
+  pos=(0.0, 10.07222) vel=(0.0, 16.33333)
+
+=== E. 模拟按住 D（move_right）40 帧 ===
+  按D中: pos=(599.0, 20.96112) vel=(898.5, 16.33333)
+
+=== F. 模拟按住 W（move_up）40 帧 ===
+  按W中: pos=(599.0, -567.1501) vel=(0.0, -882.1667)
+
+=== G. 相机跟随情况 ===
+  Camera2D pos=(599.0, -567.1501) enabled=true
+  玩家在屏幕上的位置=(576.0, 576.0)
