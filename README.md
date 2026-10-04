@@ -1,2 +1,3 @@
 # David
-There‘s no more description
+GameJam游戏暂定《蜂巢：月球》
+玩家需要控制各类机器人，完成科技树的点亮
