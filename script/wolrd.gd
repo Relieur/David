@@ -10,6 +10,7 @@ extends Node2D
 const ORE_SCENE:PackedScene=preload("res://scene/ore.tscn")
 
 
+
 const TILE_SIZE=16
 const MAP_SIZE=Vector2i(128,128)
 
@@ -28,7 +29,7 @@ func _ready() -> void:
 #创造地图
 func generate_world():
 	
-
+	
 	#地面
 	var height_noise=FastNoiseLite.new()
 	#种子
@@ -92,6 +93,7 @@ func _setup_camera()->void:
 
 #回调采集
 func _on_copper_mined(ore_type:String ,amount :int )->void:
+	GameManager.add_item(ore_type,amount)
 	print("获得%s x %d"%[ore_type,amount])
 	#背包
 		

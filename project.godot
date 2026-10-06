@@ -14,6 +14,10 @@ config/name="GameJame"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GameManager="*uid://csjscxthnlohf"
+
 [display]
 
 window/stretch/mode="canvas_items"
