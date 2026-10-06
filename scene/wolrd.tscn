@@ -99,3 +99,6 @@ tile_set = SubResource("TileSet_40dut")
 [node name="OreContainer" type="Node2D" parent="." unique_id=1448270321]
 
 [node name="Ore" parent="OreContainer" unique_id=71541184 instance=ExtResource("4_khi8j")]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
+zoom = Vector2(0.2, 0.2)

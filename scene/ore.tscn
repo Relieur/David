@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://b6rfcf5m125tr" path="res://script/ore.gd" id="1_mmjia"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
-size = Vector2(32, 32)
+size = Vector2(16, 16)
 
 [node name="Ore" type="Area2D" unique_id=71541184]
 script = ExtResource("1_mmjia")
@@ -13,6 +13,7 @@ script = ExtResource("1_mmjia")
 shape = SubResource("RectangleShape2D_3rt66")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1083088366]
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("1_lmo6b")
 
 [connection signal="input_event" from="." to="." method="_on_input_event"]
