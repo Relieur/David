@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://cxl0ew5qdk51b"]
+
+[ext_resource type="Script" uid="uid://wq2jvt0l2qi8" path="res://script/dropped_item.gd" id="1_y8hqn"]
+[ext_resource type="Texture2D" uid="uid://defmceywvdcc3" path="res://textures/drop.png" id="2_y8hqn"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
+size = Vector2(16, 16)
+
+[node name="DroppedItem" type="Area2D" unique_id=692131007]
+script = ExtResource("1_y8hqn")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=784372599]
+position = Vector2(0, 2.3841858e-07)
+texture = ExtResource("2_y8hqn")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1072365073]
+shape = SubResource("RectangleShape2D_3rt66")

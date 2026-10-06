@@ -17,7 +17,7 @@ var is_mining:bool=false
 var can_mine:bool=true
 var _original_modulate:Color
 var _click_count:int=0  #已经点击次数
-
+var _color_tween: Tween
 
 #生命周期
 func _ready() -> void:
@@ -29,7 +29,7 @@ func _ready() -> void:
 #点击
 
 #点击
-func _on_input_event(viewport: Node, event: InputEvent, shape_idx: int) -> void:
+func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.is_pressed() and event.button_index==MOUSE_BUTTON_LEFT:
 		_on_click()
 
@@ -46,10 +46,12 @@ func _on_click()->void:
 func _update_darkness()->void:
 	if not sprite_2d:
 		return
+	if _color_tween and _color_tween.is_valid():
+		_color_tween.kill()
 	var progress:=float(_click_count) / float(clicks_needed)
 	var target:=_original_modulate.lerp(Color(0.4,0.4,0.4,1.0),progress)
-	var tween:=create_tween()
-	tween.tween_property(sprite_2d,"modulate",target,0.1)
+	_color_tween=create_tween()
+	_color_tween.tween_property(sprite_2d,"modulate",target,0.1)
 
 
 
@@ -61,8 +63,10 @@ func mine()->void:
 	can_mine=false
 	#变暗
 	if sprite_2d:
-		var tween : = create_tween()
-		tween.tween_property(sprite_2d,"modulate", Color(0.4, 0.4, 0.4, 1.0),mine_time*0.4)
+		if _color_tween and _color_tween.is_valid():
+			_color_tween.kill()
+		_color_tween=create_tween()
+		_color_tween.tween_property(sprite_2d,"modulate", Color(0.4, 0.4, 0.4, 1.0),mine_time*0.4) 
 		
 	await  get_tree().create_timer(mine_time).timeout
 	mined.emit(ore_type,amount)
@@ -76,7 +80,10 @@ func mine()->void:
 func _start_cooldown()->void:
 	await get_tree().create_timer(mine_time).timeout
 	if sprite_2d:
-		var tween:= create_tween()
-		tween.tween_property(sprite_2d,"modulate",_original_modulate,mine_time*0.4)
+		if _color_tween and _color_tween.is_valid():
+			_color_tween.kill()
+		_color_tween= create_tween()
+		_color_tween.tween_property(sprite_2d,"modulate",_original_modulate,mine_time*0.4)
+		await  _color_tween.finished
 		_click_count=0
 		can_mine=true

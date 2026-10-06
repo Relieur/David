@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dgb3pt7uuf5lr" path="res://script/wolrd.gd" id="1_mxmcw"]
 [ext_resource type="Texture2D" uid="uid://dk58dee7u6c41" path="res://textures/png.png" id="2_qv3r4"]
+[ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/ware_house.tscn" id="4_bs68n"]
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
-[ext_resource type="PackedScene" uid="uid://cral4cah3grmo" path="res://scene/ore.tscn" id="4_khi8j"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_khi8j"]
 texture = ExtResource("2_qv3r4")
@@ -99,11 +99,15 @@ tile_set = SubResource("TileSet_40dut")
 
 [node name="OreContainer" type="Node2D" parent="." unique_id=1448270321]
 
-[node name="Ore" parent="OreContainer" unique_id=71541184 instance=ExtResource("4_khi8j")]
+[node name="WareHouse" parent="." unique_id=1240451256 instance=ExtResource("4_bs68n")]
+
+[node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
 zoom = Vector2(0.2, 0.2)
 
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
 
-[node name="InventoryUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
+[node name="WarehouseUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
+
+[node name="WareHouse2" parent="." unique_id=1697424091 instance=ExtResource("4_bs68n")]

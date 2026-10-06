@@ -3,19 +3,21 @@ extends Node2D
 @onready var tilemap=$TileMapLayer
 @onready var ore_container: Node2D = $OreContainer
 @onready var camera_2d: Camera2D = $Camera2D
+@onready var drop_container: Node2D = $DropContainer
 
 
 
 #预加载矿石
 const ORE_SCENE:PackedScene=preload("res://scene/ore.tscn")
 
+const DROPPED_ITEM_SCENE: PackedScene=preload("res://scene/dropped_item.tscn")
 
 
 const TILE_SIZE=16
 const MAP_SIZE=Vector2i(128,128)
 
 
-const LAND_CAP=-0.3
+const LAND_CAP=-0.3 	
 const ORE_CAP = 0.55
 #中心留空
 const  NO_ORE_RADIUS:=20.0
@@ -76,7 +78,7 @@ func generate_world():
 		copper.ore_type="copper"
 		copper.amount=1
 		ore_container.add_child(copper)
-		copper.mined.connect(_on_copper_mined)
+		copper.mined.connect(_on_copper_mined.bind(copper))
 	print("水%d / 地面%d / 矿%d"%[water_cells.size(),ground_cells.size(),copper_cells.size()])
 
 #摄像机
@@ -92,8 +94,22 @@ func _setup_camera()->void:
 
 
 #回调采集
-func _on_copper_mined(ore_type:String ,amount :int )->void:
-	GameManager.add_item(ore_type,amount)
+func _on_copper_mined(ore_type:String ,amount :int ,ore:Node2D)->void:
+	var drop : =DROPPED_ITEM_SCENE.instantiate()
+	
+	
+	var angle:=randf()*TAU
+	var radius:=randf_range(20.0,40.0)
+	var offset:= Vector2(cos(angle),sin(angle))*radius
+	
+	
+	drop.global_position=ore.global_position+offset
+	drop.item_type=ore_type
+	drop.amount=amount
+	drop_container.add_child(drop)
+	
+	
+	
 	print("获得%s x %d"%[ore_type,amount])
 	#背包
 		

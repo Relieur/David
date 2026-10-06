@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dr1xk34nuvoxr"]
+
+[ext_resource type="Script" uid="uid://bg4xvpg8d7ou" path="res://script/ware_house.gd" id="1_73vke"]
+[ext_resource type="Texture2D" uid="uid://bmqxnm700bvf4" path="res://textures/house.png" id="2_73vke"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
+size = Vector2(32, 32)
+
+[node name="WareHouse" type="Area2D" unique_id=1240451256]
+position = Vector2(1024, 1024)
+script = ExtResource("1_73vke")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1416329392]
+texture = ExtResource("2_73vke")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1473297900]
+shape = SubResource("RectangleShape2D_3rt66")
