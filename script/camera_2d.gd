@@ -6,6 +6,11 @@ class_name CameraController
 @export var zoom_level:=1.0
 @export var limit_to_map:bool=true
 
+
+@export var zoom_step:float=0.1
+@export var zoom_min:float=0.5
+@export var zoom_max:float=4.0
+
 var _target_position:Vector2
 var _home_position:Vector2
 var map_size_px:Vector2=Vector2(2048,2048)
@@ -48,3 +53,25 @@ func set_target(pos: Vector2) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.keycode==KEY_SPACE and event.pressed and not event.echo:
 		_target_position=_home_position
+
+
+
+#缩放
+func _unhandled_input(event:InputEvent)->void:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index==MOUSE_BUTTON_WHEEL_UP:
+			_zoom_at_mouse(1.0 + zoom_step)
+		elif  event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_at_mouse(1.0 - zoom_step)
+
+func _zoom_at_mouse(factor:float)->void:
+	var old_zoom:=zoom.x
+	var new_zoom: float=clamp(old_zoom*factor,zoom_min,zoom_max)
+	if is_equal_approx(old_zoom,new_zoom):
+		return
+	var mouse_world:=get_global_mouse_position()
+	zoom=Vector2(new_zoom,new_zoom)
+	var mouse_world_after:=get_global_mouse_position()
+	var diff:=mouse_world-mouse_world_after
+	position+=diff
+	_target_position+=diff

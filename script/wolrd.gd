@@ -15,13 +15,18 @@ const DROPPED_ITEM_SCENE: PackedScene=preload("res://scene/dropped_item.tscn")
 
 
 const TILE_SIZE=16
-const MAP_SIZE=Vector2i(128,128)
-
-
-const LAND_CAP=-0.3 	
+const MAP_SIZE=Vector2i(128,128)#画布尺寸
+const LAND_CAP=-0.3 
 const ORE_CAP = 0.55
+
+const ORE_PATCH_COUNT:=40
+const ORE_PATCH_MIN:=1
+const ORE_PATCH_MAX:=6
+
+
 #中心留空
-const  NO_ORE_RADIUS:=20.0
+const  NO_ORE_RADIUS:=8.0
+
 
 func _ready() -> void:
 	generate_world()
@@ -48,21 +53,15 @@ func generate_world():
 	height_noise.noise_type=FastNoiseLite.TYPE_SIMPLEX
 	height_noise.frequency=0.0004
 	height_noise.fractal_octaves=2
-
-
-
-	#矿物
-	var copper_noise=FastNoiseLite.new()
-	copper_noise.seed=height_noise.seed+1000
-	copper_noise.noise_type=FastNoiseLite.TYPE_SIMPLEX
-	copper_noise.frequency=0.02
-	copper_noise.fractal_octaves=2
+	
+	
+	
 	
 	var center :=Vector2(MAP_SIZE.x*0.5,MAP_SIZE.y*0.5)
-	
 	var water_cells:Array[Vector2i]=[]
+	var center_cell:=Vector2i(MAP_SIZE.x /2,MAP_SIZE.y /2)
 	var ground_cells:Array[Vector2i]=[]
-	var copper_cells:Array[Vector2i]=[]
+	
 
 	for x in MAP_SIZE.x:
 		for y in MAP_SIZE.y:
@@ -73,14 +72,12 @@ func generate_world():
 				water_cells.append(Vector2i(x,y))
 			else :
 				ground_cells.append(pos)
-				if Vector2(x,y).distance_to(center)<NO_ORE_RADIUS:
-					continue
-				if copper_noise.get_noise_2d(x,y)>ORE_CAP:
-					copper_cells.append(pos)
-
+	
+	var copper_cells:Array[Vector2i]=[]
+	_generate_ore_patches(copper_cells,water_cells,center_cell)
 	tilemap.set_cells_terrain_connect(water_cells,0,0)
 	tilemap.set_cells_terrain_connect(ground_cells,0,1)
-	#tilemap.set_cells_terrain_connect(ore_cells,0,2)
+	
 	for cell in copper_cells:
 		var copper : =ORE_SCENE.instantiate()
 		copper.global_position=tilemap.map_to_local(cell)
@@ -100,6 +97,48 @@ func _setup_camera()->void:
 	camera_2d.make_current()
 	pass
 
+
+#生成矿物
+func _generate_ore_patches(copper_cells:Array[Vector2i],water_cells:Array[Vector2i],center_cell:Vector2i)->void:
+	var rng:=RandomNumberGenerator.new()
+	rng.randomize()
+	
+	var water_set:={}
+	for c in water_cells:
+		water_set[c]=true
+	var ore_set:={}
+	var attemps:=0
+	var max_attemps:=2000
+	var target_ore_cells:=800
+	while ore_set.size()<target_ore_cells and attemps<max_attemps:
+		attemps+=1
+		var cx=rng.randi_range(0,MAP_SIZE.x-1)
+		var cy=rng.randi_range(0,MAP_SIZE.y-1)
+		var origin:=Vector2i(cx,cy)
+		if Vector2(origin).distance_to(Vector2(center_cell))<NO_ORE_RADIUS:
+			continue
+		var w:=rng.randi_range(ORE_PATCH_MIN,ORE_PATCH_MAX)
+		var h:=rng.randi_range(ORE_PATCH_MIN,ORE_PATCH_MAX)
+		if cx+w>MAP_SIZE.x or cy+h>MAP_SIZE.y:
+			continue
+		var ok:=true
+		for dx in w:
+			for dy in h:
+				var c:=Vector2i(cx+dx,cy+dy)
+				if water_set.has(c) or ore_set.has(c):
+					ok=false
+					break
+			if not ok:
+				break
+		if  not ok:
+			continue
+		for dx in w:
+			for dy in h:
+				var c=Vector2i(cx+dx,cy+dy)
+				ore_set[c]=true
+	copper_cells.clear()
+	for c in ore_set.keys():
+		copper_cells.append(c)
 
 #回调采集
 func _on_copper_mined(ore_type:String ,amount :int ,ore:Node2D)->void:
