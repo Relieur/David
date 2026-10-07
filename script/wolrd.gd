@@ -25,7 +25,7 @@ const ORE_PATCH_MAX:=6
 
 
 #中心留空
-const  NO_ORE_RADIUS:=8.0
+const  NO_ORE_RADIUS:=10.0
 
 
 func _ready() -> void:
