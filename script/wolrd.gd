@@ -4,6 +4,7 @@ extends Node2D
 @onready var ore_container: Node2D = $OreContainer
 @onready var camera_2d: Camera2D = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
+@onready var ware_house: WareHouse = $WareHouse
 
 
 
@@ -24,8 +25,16 @@ const  NO_ORE_RADIUS:=20.0
 
 func _ready() -> void:
 	generate_world()
+	_place_warehouse()#仓库
 	_setup_camera()
 	
+	
+
+#仓库放到中间
+func _place_warehouse()->void:
+	var center_cell:=Vector2i(MAP_SIZE.x /2,MAP_SIZE.y / 2)
+	var pos:= Vector2( center_cell + Vector2i(1,1))*TILE_SIZE
+	ware_house.set_center_to(pos)
 
 
 #创造地图

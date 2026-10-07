@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dk58dee7u6c41" path="res://textures/png.png" id="2_qv3r4"]
 [ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/ware_house.tscn" id="4_bs68n"]
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
+[ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_khi8j"]
 texture = ExtResource("2_qv3r4")
@@ -110,4 +111,4 @@ zoom = Vector2(0.2, 0.2)
 
 [node name="WarehouseUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
 
-[node name="WareHouse2" parent="." unique_id=1697424091 instance=ExtResource("4_bs68n")]
+[node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]

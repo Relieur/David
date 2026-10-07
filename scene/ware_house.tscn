@@ -7,10 +7,11 @@
 size = Vector2(32, 32)
 
 [node name="WareHouse" type="Area2D" unique_id=1240451256]
-position = Vector2(1024, 1024)
+z_index = 5
 script = ExtResource("1_73vke")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1416329392]
+scale = Vector2(2, 2)
 texture = ExtResource("2_73vke")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1473297900]

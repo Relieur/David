@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://dx73twhnctp2"]
+
+[ext_resource type="Script" uid="uid://c5jcoq3tlcjrx" path="res://script/tile_cursor.gd" id="1_n6al0"]
+
+[node name="TileCursor" type="Line2D" unique_id=188704725]
+top_level = true
+z_index = 1000
+width = 2.0
+antialiased = true
+script = ExtResource("1_n6al0")
