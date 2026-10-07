@@ -7,6 +7,7 @@ class_name CameraController
 @export var limit_to_map:bool=true
 
 var _target_position:Vector2
+var _home_position:Vector2
 var map_size_px:Vector2=Vector2(2048,2048)
 var viewport_size:Vector2=Vector2(1280,720)
 
@@ -14,8 +15,10 @@ var viewport_size:Vector2=Vector2(1280,720)
 
 func _ready() -> void:
 	make_current()
-	_target_position=position
+	zoom=Vector2(zoom_level,zoom_level)
 	viewport_size=get_viewport_rect().size
+	_target_position=position
+	_home_position=position
 	
 
 func _process(delta: float) -> void:
@@ -41,3 +44,7 @@ func _process(delta: float) -> void:
 func set_target(pos: Vector2) -> void:
 	position = pos
 	_target_position = pos
+	_home_position=pos
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode==KEY_SPACE and event.pressed and not event.echo:
+		_target_position=_home_position
