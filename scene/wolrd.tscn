@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dk58dee7u6c41" path="res://textures/png.png" id="2_qv3r4"]
 [ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/ware_house.tscn" id="4_bs68n"]
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
+[ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_khi8j"]
@@ -106,6 +107,7 @@ tile_set = SubResource("TileSet_40dut")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
 zoom = Vector2(0.2, 0.2)
+script = ExtResource("4_whfxa")
 
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
 

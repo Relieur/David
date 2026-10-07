@@ -29,9 +29,6 @@ func set_center_to(world_pos:Vector2)->void:
 
 
 
-
-
-
 #仓库判断
 func is_point_inside(world_pos:Vector2)->bool:
 	var local:=to_local(world_pos)

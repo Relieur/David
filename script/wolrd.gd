@@ -2,7 +2,7 @@ extends Node2D
 
 @onready var tilemap=$TileMapLayer
 @onready var ore_container: Node2D = $OreContainer
-@onready var camera_2d: Camera2D = $Camera2D
+@onready var camera_2d: CameraController = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
 @onready var ware_house: WareHouse = $WareHouse
 
@@ -93,11 +93,10 @@ func generate_world():
 #摄像机
 func _setup_camera()->void:
 	
-	camera_2d.position=Vector2(MAP_SIZE)*TILE_SIZE*0.5
-	var vp:=get_viewport_rect().size
-	var map_px:=Vector2(MAP_SIZE)*TILE_SIZE
-	var  z:float=min(vp.x / map_px.x,vp.y / map_px.y)*0.95
-	camera_2d.zoom=Vector2(z,z)
+	camera_2d.set_target(ware_house.global_position)
+	camera_2d.zoom=Vector2(2.0,2.0)
+	camera_2d.map_size_px=Vector2(MAP_SIZE)*TILE_SIZE
+	camera_2d.viewport_size=get_viewport_rect().size
 	camera_2d.make_current()
 	pass
 
