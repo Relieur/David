@@ -1,7 +1,7 @@
 extends Area2D
 class_name  WareHouse#仓库
 
-const  TILE_SIZE=16
+const  TILE_SIZE=64
 
 @onready var collision_shape_2d: CollisionShape2D = $CollisionShape2D
 @onready var sprite_2d: Sprite2D = $Sprite2D
@@ -33,7 +33,6 @@ func set_center_to(world_pos:Vector2)->void:
 func is_point_inside(world_pos:Vector2)->bool:
 	var local:=to_local(world_pos)
 	var shape:=collision_shape_2d.shape
-	
 	if shape is RectangleShape2D:
 		var rect:=shape as RectangleShape2D
 		var half : Vector2= rect.size*0.5

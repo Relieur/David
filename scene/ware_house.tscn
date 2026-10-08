@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://bmqxnm700bvf4" path="res://textures/house.png" id="2_73vke"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
-size = Vector2(32, 32)
+size = Vector2(128, 128)
 
 [node name="WareHouse" type="Area2D" unique_id=1240451256]
 z_index = 5

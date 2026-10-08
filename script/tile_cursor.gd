@@ -5,7 +5,7 @@ extends Line2D
 
 #一个光标的尺寸，表示一个tile_set
 @export var tilemap:TileMapLayer
-@export var tile_size:Vector2i=Vector2i(16,16)
+@export var tile_size:Vector2i=Vector2i(64,64)
 
 func _ready() -> void:
 	width=2.0

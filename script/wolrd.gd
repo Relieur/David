@@ -14,7 +14,8 @@ const ORE_SCENE:PackedScene=preload("res://scene/ore.tscn")
 const DROPPED_ITEM_SCENE: PackedScene=preload("res://scene/dropped_item.tscn")
 
 
-const TILE_SIZE=16
+const TILE_SIZE=64
+
 const MAP_SIZE=Vector2i(128,128)#画布尺寸
 const LAND_CAP=-0.3 
 const ORE_CAP = 0.55
@@ -37,8 +38,8 @@ func _ready() -> void:
 
 #仓库放到中间
 func _place_warehouse()->void:
-	var center_cell:=Vector2i(MAP_SIZE.x /2,MAP_SIZE.y / 2)
-	var pos:= Vector2( center_cell + Vector2i(1,1))*TILE_SIZE
+	var center_cell:=MAP_SIZE /2
+	var pos:= Vector2( center_cell)*TILE_SIZE+Vector2(TILE_SIZE,TILE_SIZE)*0.5
 	ware_house.set_center_to(pos)
 
 
@@ -85,7 +86,7 @@ func generate_world():
 		copper.amount=1
 		ore_container.add_child(copper)
 		copper.mined.connect(_on_copper_mined.bind(copper))
-	print("水%d / 地面%d / 矿%d"%[water_cells.size(),ground_cells.size(),copper_cells.size()])
+	print("地面%d / 矿%d"%[ground_cells.size(),copper_cells.size()])
 
 #摄像机
 func _setup_camera()->void:
@@ -95,14 +96,13 @@ func _setup_camera()->void:
 	camera_2d.map_size_px=Vector2(MAP_SIZE)*TILE_SIZE
 	camera_2d.viewport_size=get_viewport_rect().size
 	camera_2d.make_current()
-	pass
+
 
 
 #生成矿物
 func _generate_ore_patches(copper_cells:Array[Vector2i],water_cells:Array[Vector2i],center_cell:Vector2i)->void:
 	var rng:=RandomNumberGenerator.new()
 	rng.randomize()
-	
 	var water_set:={}
 	for c in water_cells:
 		water_set[c]=true
@@ -143,8 +143,6 @@ func _generate_ore_patches(copper_cells:Array[Vector2i],water_cells:Array[Vector
 #回调采集
 func _on_copper_mined(ore_type:String ,amount :int ,ore:Node2D)->void:
 	var drop : =DROPPED_ITEM_SCENE.instantiate()
-	
-	
 	var angle:=randf()*TAU
 	var radius:=randf_range(20.0,40.0)
 	var offset:= Vector2(cos(angle),sin(angle))*radius
@@ -154,9 +152,6 @@ func _on_copper_mined(ore_type:String ,amount :int ,ore:Node2D)->void:
 	drop.item_type=ore_type
 	drop.amount=amount
 	drop_container.add_child(drop)
-	
-	
-	
 	print("获得%s x %d"%[ore_type,amount])
 	#背包
 		
