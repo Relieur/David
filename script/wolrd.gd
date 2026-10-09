@@ -5,6 +5,7 @@ extends Node2D
 @onready var camera_2d: CameraController = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
 @onready var ware_house: WareHouse = $WareHouse
+@onready var robot_container: Node2D = $RobotContainer
 
 
 
@@ -12,6 +13,8 @@ extends Node2D
 const ORE_SCENE:PackedScene=preload("res://scene/ore.tscn")
 
 const DROPPED_ITEM_SCENE: PackedScene=preload("res://scene/dropped_item.tscn")
+
+const ROBOT_SCENE: PackedScene = preload("res://scene/robot.tscn")
 
 
 const TILE_SIZE=64
@@ -33,6 +36,7 @@ func _ready() -> void:
 	generate_world()
 	_place_warehouse()#仓库
 	_setup_camera()
+	_spawn_robots()
 	
 	
 
@@ -41,6 +45,17 @@ func _place_warehouse()->void:
 	var center_cell:=MAP_SIZE /2
 	var pos:= Vector2( center_cell)*TILE_SIZE+Vector2(TILE_SIZE,TILE_SIZE)*0.5
 	ware_house.set_center_to(pos)
+
+
+#在仓库附近生成初始机器人
+func _spawn_robots() -> void:
+	var count := 3
+	for i in count:
+		var robot: Robot = ROBOT_SCENE.instantiate()
+		var angle := float(i) / float(count) * TAU
+		var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
+		robot.global_position = ware_house.global_position + offset
+		robot_container.add_child(robot)
 
 
 #创造地图
