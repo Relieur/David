@@ -12,6 +12,7 @@ var _deposited:bool=false
 
 func _ready() -> void:
 	input_pickable=true
+	z_index=10
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 		set_process(false)

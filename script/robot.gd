@@ -5,7 +5,7 @@ class_name Robot
 @export var move_speed: float = 300.0        # 移动速度
 @export var mine_range: float = 80.0         # 进入这个距离就开始挖
 @export var mine_time: float = 0.5           # 每次挖矿耗时
-@export var carry_capacity: int = 5          # 携带上限
+@export var carry_capacity: int = 1          # 携带上限
 @export var deposit_range: float = 60.0      # 进入仓库这个距离就算卸货
 
 # ==================== 节点引用 ====================

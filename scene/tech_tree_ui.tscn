@@ -49,8 +49,15 @@ theme_override_font_sizes/font_size = 24
 text = "科技树"
 horizontal_alignment = 1
 
-[node name="TechList" type="VBoxContainer" parent="FullPanel/Center/Panel/VBox" unique_id=760591847]
+[node name="Scroll" type="ScrollContainer" parent="FullPanel/Center/Panel/VBox" unique_id=760591848]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="TechList" type="VBoxContainer" parent="FullPanel/Center/Panel/VBox/Scroll" unique_id=760591847]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="CloseButton" type="Button" parent="FullPanel/Center/Panel/VBox" unique_id=1746511737]

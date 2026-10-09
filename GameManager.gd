@@ -11,15 +11,33 @@ var tech_levels: Dictionary = {}                # 科技等级，替代 unlocked
 var selected_robot: Node = null                 # 当前选中的机器人
 
 # ==================== 科技定义 ====================
+# category: 分类（对应 CATEGORY_ORDER）
 # max_level>1 表示可重复升级（如扩展矿区每级解锁一块）；默认 1 为一次性解锁
-# prereq 为前置科技，需全部已解锁才能研究
+# prereq: 前置科技，需全部已解锁才能研究
+const CATEGORY_ORDER := ["能力升级", "资源点升级", "机器人升级", "巨型玻璃罩"]
+
 const TECHS := {
-	"unlock_more_ores": {
-		"name": "放置矿点",
-		"desc": "花费铜矿，手动在地图指定位置放置一个固定形状的矿点",
-		"cost": {"copper": 3},
-		"max_level": 40,
-	}
+	#能力升级
+	"memory_auto": {"category": "能力升级", "name": "坐标点记忆、自动寻路", "desc": "机器人记忆矿点与仓库，空闲时自动前往", "cost": {"copper": 5}, "prereq": []},
+	"priority_sort": {"category": "能力升级", "name": "优先排序能力", "desc": "机器人优先前往最近的矿点或仓库", "cost": {"copper": 10}, "prereq": ["memory_auto"]},
+	"fallow": {"category": "能力升级", "name": "休耕意识", "desc": "矿点耐久低于15%时跳过，恢复到80%以上才继续开采", "cost": {"copper": 20}, "prereq": ["priority_sort"]},
+	"density": {"category": "能力升级", "name": "密度感知能力", "desc": "机器人感知周围密度，避免拥堵（占位）", "cost": {"copper": 20}, "prereq": ["priority_sort"]},
+	"info_share": {"category": "能力升级", "name": "信息交流能力", "desc": "机器人之间共享记忆的坐标点", "cost": {"copper": 15}, "prereq": ["priority_sort"]},
+	"resource_swap": {"category": "能力升级", "name": "资源交换", "desc": "背包空余的机器人可接收同伴的矿物", "cost": {"copper": 25}, "prereq": ["priority_sort"]},
+	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（上限80）", "cost": {"copper": 50}, "prereq": ["fallow", "density", "info_share", "resource_swap"]},
+	#资源点升级
+	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度", "cost": {"copper": 5}, "prereq": []},
+	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久", "cost": {"copper": 10}, "prereq": []},
+	"ore_drop_count": {"category": "资源点升级", "name": "资源点掉落矿物数", "desc": "每次采集掉落更多矿物", "cost": {"copper": 15}, "prereq": ["ore_durability"]},
+	"unlock_more_ores": {"category": "资源点升级", "name": "放置矿点", "desc": "花费铜矿，手动在地图指定位置放置一个固定形状的矿点", "cost": {"copper": 3}, "prereq": [], "max_level": 40},
+	#机器人升级
+	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度", "cost": {"copper": 8}, "prereq": []},
+	"robot_backpack": {"category": "机器人升级", "name": "机器人背包", "desc": "解锁背包扩容能力", "cost": {"copper": 8}, "prereq": []},
+	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量", "cost": {"copper": 15}, "prereq": ["robot_backpack"]},
+	"mine_speed": {"category": "机器人升级", "name": "采集速度", "desc": "缩短机器人采矿交互间隔", "cost": {"copper": 10}, "prereq": []},
+	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限", "cost": {"copper": 12}, "prereq": []},
+	#巨型玻璃罩
+	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper": 100}, "prereq": []},
 }
 
 # ==================== 资源 ====================
