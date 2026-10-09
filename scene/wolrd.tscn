@@ -1,13 +1,16 @@
 [gd_scene format=3 uid="uid://c1p7kh5rtr5uk"]
 
 [ext_resource type="Script" uid="uid://dgb3pt7uuf5lr" path="res://script/wolrd.gd" id="1_mxmcw"]
-[ext_resource type="Texture2D" uid="uid://0av4m2vjhbrr" path="res://art/Scene_BG.png" id="2_whfxa"]
+[ext_resource type="Texture2D" uid="uid://10fga1y56ksk" path="res://art/Scene_BG.png" id="2_whfxa"]
 [ext_resource type="Texture2D" uid="uid://ofp6rj617v0g" path="res://textures/微信图片_20261008090444_781_372.png" id="3_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/ware_house.tscn" id="4_bs68n"]
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
 [ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 [ext_resource type="PackedScene" uid="uid://1ft37vt4mhjs" path="res://scene/tech_tree_ui.tscn" id="8_j0btk"]
+[ext_resource type="PackedScene" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
+[ext_resource type="PackedScene" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
+[ext_resource type="PackedScene" path="res://scene/ore_patch_cross.tscn" id="11_pqfde"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -48,13 +51,11 @@ region_rect = Rect2(0, 0, 8192, 8192)
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=521502551]
 tile_set = SubResource("TileSet_40dut")
 
-[node name="OreContainer" type="Node2D" parent="." unique_id=1448270321]
-
 [node name="WareHouse" parent="." unique_id=1240451256 instance=ExtResource("4_bs68n")]
 
 [node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
 
-[node name="RobotContainer" type="Node2D" parent="."]
+[node name="RobotContainer" type="Node2D" parent="." unique_id=458317238]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
 zoom = Vector2(0.2, 0.2)
@@ -68,3 +69,12 @@ script = ExtResource("4_whfxa")
 
 [node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
+
+[node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
+position = Vector2(4384, 4448)
+
+[node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
+position = Vector2(5024, 4576)
+
+[node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
+position = Vector2(4448, 4640)

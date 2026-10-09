@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cral4cah3grmo"]
 
-[ext_resource type="Texture2D" uid="uid://7eesvysvmujv" path="res://textures/copper.png" id="1_lmo6b"]
+[ext_resource type="Texture2D" path="res://art/Ore/Resource_Ore01.png" id="1_lmo6b"]
 [ext_resource type="Script" uid="uid://b6rfcf5m125tr" path="res://script/ore.gd" id="1_mmjia"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]

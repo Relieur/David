@@ -7,6 +7,7 @@ class_name DroppedItem
 @onready var sprite_2d: Sprite2D = $Sprite2D
 var _dragging:bool=false
 var _drag_offset:Vector2=Vector2.ZERO
+var _deposited:bool=false
 
 
 func _ready() -> void:
@@ -39,10 +40,13 @@ func _start_drag()->void:
 	var tween:=create_tween()
 	tween.tween_property(self,"scale",Vector2(1.3,1.3),0.1)
 
-#拖拽跟随
+#拖拽跟随，并在拖拽中实时检测是否已进入仓库
 func _process(delta: float) -> void:
 	if _dragging:
 		global_position=get_global_mouse_position() -_drag_offset
+		var warehouse:=get_tree().get_first_node_in_group("warehouse")
+		if warehouse and warehouse.is_point_inside(global_position):
+			_deposit()
 
 
 #拖拽结束
@@ -64,5 +68,8 @@ func _end_drag()->void:
 
 
 func _deposit()->void:
+	if _deposited:
+		return
+	_deposited=true
 	GameManager.add_item(item_type,amount)
 	queue_free()

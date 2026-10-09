@@ -20,12 +20,15 @@ var _warehouse: Node2D = null                # 仓库引用
 
 var _is_selected: bool = false
 var _carry_count: int = 0
+var _command_token: int = 0                  # 每次指派新目标 +1，用于打断旧采矿循环
 var _original_modulate: Color = Color.WHITE
 
 
 # ==================== 生命周期 ====================
 func _ready() -> void:
 	input_pickable = true
+	add_to_group("robots")
+	collision_mask = 0                    # 机器人与彼此不硬碰撞，靠软分离避免重叠/挤住
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 	if anim:
@@ -57,6 +60,7 @@ func _on_robot_selected(robot: Node) -> void:
 func set_mine_target(ore: Node2D) -> void:
 	if ore == null or not is_instance_valid(ore):
 		return
+	_command_token += 1
 	_target_ore = ore
 	_state = State.MOVING
 	print("机器人 %s 收到挖矿任务：%s" % [name, ore.name])
@@ -78,6 +82,27 @@ func _physics_process(delta: float) -> void:
 		State.DEPOSITING:
 			velocity = Vector2.ZERO
 			move_and_slide()
+
+
+# ==================== 避让：让机器人彼此推开，避免互相挤住 ====================
+const SEPARATION_RADIUS := 48.0           # 两机器人中心小于此距离时互相推开
+const SEPARATION_STRENGTH := 160.0        # 推开力度
+
+
+func _get_separation_velocity() -> Vector2:
+	var sep := Vector2.ZERO
+	var others: Array[Node] = get_tree().get_nodes_in_group("robots")
+	for other in others:
+		if other == self or not is_instance_valid(other):
+			continue
+		var other2d := other as Node2D
+		if other2d == null:
+			continue
+		var diff: Vector2 = global_position - other2d.global_position
+		var d := diff.length()
+		if d > 0.001 and d < SEPARATION_RADIUS:
+			sep += diff.normalized() * (SEPARATION_RADIUS - d) / SEPARATION_RADIUS * SEPARATION_STRENGTH
+	return sep
 
 
 # ==================== 待机 ====================
@@ -104,7 +129,7 @@ func _tick_moving() -> void:
 		return
 
 	var dir := (_target_ore.global_position - global_position).normalized()
-	velocity = dir * move_speed
+	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
 	if anim and abs(dir.x) > 0.01:
@@ -129,7 +154,7 @@ func _tick_returning() -> void:
 		return
 
 	var dir := (_warehouse.global_position - global_position).normalized()
-	velocity = dir * move_speed
+	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
 	if anim and abs(dir.x) > 0.01:
@@ -141,19 +166,41 @@ func _tick_returning() -> void:
 func _start_mining() -> void:
 	if _state == State.MINING:
 		return
+	var ore := _target_ore
+	if ore == null or not is_instance_valid(ore) or not ore.has_method("try_claim"):
+		_target_ore = null
+		_state = State.IDLE
+		return
+	if not ore.try_claim(self):
+		# 这个格正被别的机器人采，放弃本次目标
+		_target_ore = null
+		_state = State.IDLE
+		return
 	_state = State.MINING
 	_play_anim("mine")
+	var token := _command_token
 
-	await get_tree().create_timer(mine_time).timeout
+	# 到达矿点后自动循环挖矿，直到背包装满
+	while _carry_count < carry_capacity:
+		if not is_instance_valid(ore):
+			break
+		await get_tree().create_timer(mine_time).timeout
 
-	if is_instance_valid(_target_ore) and _target_ore.has_method("mine"):
-		_target_ore.mine()
-		_carry_count += 1
-		print("机器人 %s 携带 %d / %d" % [name, _carry_count, carry_capacity])
+		# 期间被重新指派新矿点，本次循环作废
+		if token != _command_token:
+			ore.release(self)
+			return
+		if not is_instance_valid(ore) or not ore.has_method("mine"):
+			break
+		if ore.mine():
+			_carry_count += 1
+			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
 
+	if is_instance_valid(ore):
+		ore.release(self)
 	_target_ore = null
 
-	# 携带满了就回仓库，否则继续待机
+	# 背包装满后自行回仓库；否则（矿点丢失）回到待机
 	if _carry_count >= carry_capacity:
 		_state = State.RETURNING
 	else:

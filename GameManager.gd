@@ -13,8 +13,8 @@ var selected_robot: Node = null                 # 当前选中的机器人
 # ==================== 科技定义 ====================
 const TECHS := {
 	"unlock_more_ores": {
-		"name": "扩展矿区",
-		"desc": "解锁其他矿脉",
+		"name": "放置矿点",
+		"desc": "花费铜矿，手动在地图指定位置放置一个固定形状的矿点",
 		"cost": {"copper": 3},
 		"max_level": 40,
 	},
