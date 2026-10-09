@@ -60,6 +60,14 @@ func _spawn_robots() -> void:
 		robot.global_position = ware_house.global_position + offset
 		robot_container.add_child(robot)
 
+#取消选择机器人
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton \
+	and event.pressed \
+	and event.button_index == MOUSE_BUTTON_RIGHT:
+		GameManager.deselect_robot()
+		get_viewport().set_input_as_handled()
+
 
 # ==================== 生成世界 ====================
 func generate_world() -> void:
@@ -175,12 +183,13 @@ func _spawn_ore(cell: Vector2i) -> void:
 	copper.ore_type = "copper"
 	copper.amount = 1
 	ore_container.add_child(copper)
-	copper.mined.connect(_on_copper_mined.bind(copper))
+	#copper.mined.connect(_on_copper_mined.bind(copper))
 
 
 # ==================== 科技解锁回调 ====================
 func _on_tech_unlocked(tech_id: String) -> void:
 	if tech_id == "unlock_more_ores":
+		await  get_tree().create_timer(0.3).timeout
 		var next_index := _current_patch_index + 1
 		if next_index < _ore_patches.size():
 			_spawn_patch(next_index)

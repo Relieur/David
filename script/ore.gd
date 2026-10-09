@@ -24,15 +24,20 @@ var _robot_busy:bool=false  #机器人采矿冷却中
 #生命周期
 func _ready() -> void:
 	add_to_group("ore")
-	input_pickable = false  #取消玩家点击挖矿，只有机器人能采
+	input_pickable = true  
+	if not input_event.is_connected(_on_input_event):
+		input_event.connect(_on_input_event)
 	if sprite_2d:
-		_original_modulate=sprite_2d.modulate
+		_original_modulate = sprite_2d.modulate
 #点击
 
 #点击
-func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton and event.is_pressed() and event.button_index==MOUSE_BUTTON_LEFT:
-		_on_click()
+func _on_input_event(_viewport, event, _shape_idx):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var robot = GameManager.selected_robot
+		if robot != null and is_instance_valid(robot) and robot.has_method("set_mine_target"):
+			robot.set_mine_target(self)
+			get_viewport().set_input_as_handled()
 
 func _on_click()->void:
 	if is_mining or not can_mine:

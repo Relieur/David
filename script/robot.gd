@@ -1,258 +1,192 @@
 extends CharacterBody2D
 class_name Robot
 
-enum State { IDLE, MOVING_TO_ORE, MINING, MOVING_TO_WAREHOUSE, DEPOSITING }
+# ==================== 导出参数 ====================
+@export var move_speed: float = 300.0        # 移动速度
+@export var mine_range: float = 80.0         # 进入这个距离就开始挖
+@export var mine_time: float = 0.5           # 每次挖矿耗时
+@export var carry_capacity: int = 5          # 携带上限
+@export var deposit_range: float = 60.0      # 进入仓库这个距离就算卸货
 
-@export var move_speed: float = 200.0
-@export var max_capacity: int = 3
-@export var mine_interval: float = 1.0  #采矿交互间隔（秒）
-@export var arrive_threshold: float = 20.0  #到达目标的距离阈值
-@export var separation_radius: float = 52.0  #鸟群分离半径
-@export var separation_weight: float = 2.0  #分离力度
+# ==================== 节点引用 ====================
+@onready var anim: AnimatedSprite2D = $AnimatedSprite2D
 
-var backpack: int = 0
-var carry_type: String = "copper"
-var state: int = State.IDLE
+# ==================== 内部状态 ====================
+enum State { IDLE, MOVING, MINING, RETURNING, DEPOSITING }
+var _state: State = State.IDLE
 
-var target_pos: Vector2 = Vector2.ZERO
-var target_ore: Ore = null
-var _mine_timer: float = 0.0
+var _target_ore: Node2D = null               # 当前要挖的矿
+var _warehouse: Node2D = null                # 仓库引用
+
 var _is_selected: bool = false
-var known_ores: Array[Ore] = []  #记忆中的矿点，用于自主采矿
-
-@onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
-@onready var shadow: Sprite2D = $Shadow
-
-const FRAME_COUNT := 65
-const FRONT_PATH := "res://art/robot/walk_front/bot_front_%02d.png"
-const BACK_PATH := "res://art/robot/walk_back/bot_back_%02d.png"
+var _carry_count: int = 0
+var _original_modulate: Color = Color.WHITE
 
 
+# ==================== 生命周期 ====================
 func _ready() -> void:
-	add_to_group("robot")
-	#机器人在第2层，只与第1层碰撞，机器人之间互不碰撞
-	collision_layer = 2
-	collision_mask = 1
 	input_pickable = true
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
-	_build_animations()
-	animated_sprite.play("walk_front")
-	animated_sprite.pause()
+	if anim:
+		_original_modulate = anim.modulate
+		_play_anim("idle")
+	_warehouse = get_tree().get_first_node_in_group("warehouse")
+	GameManager.robot_selected.connect(_on_robot_selected)
 
 
-#构建动画帧
-func _build_animations() -> void:
-	var frames := SpriteFrames.new()
-	frames.add_animation("walk_front")
-	frames.set_animation_speed("walk_front", 24.0)
-	frames.set_animation_loop("walk_front", true)
-	for i in FRAME_COUNT:
-		frames.add_frame("walk_front", load(FRONT_PATH % i))
-
-	frames.add_animation("walk_back")
-	frames.set_animation_speed("walk_back", 24.0)
-	frames.set_animation_loop("walk_back", true)
-	for i in FRAME_COUNT:
-		frames.add_frame("walk_back", load(BACK_PATH % i))
-
-	animated_sprite.sprite_frames = frames
-
-
-#点击选中
+# ==================== 点击选中 ====================
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton and event.is_pressed() and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton \
+	and event.pressed \
+	and event.button_index == MOUSE_BUTTON_LEFT:
 		GameManager.select_robot(self)
 
 
-func on_selected() -> void:
-	_is_selected = true
-	modulate = Color(1.4, 1.4, 1.0)
-
-
-func on_deselected() -> void:
-	_is_selected = false
-	modulate = Color.WHITE
-
-
-#选中时接收全局点击指令
-func _unhandled_input(event: InputEvent) -> void:
-	if not _is_selected:
+func _on_robot_selected(robot: Node) -> void:
+	_is_selected = (robot == self)
+	if anim == null:
 		return
-	if event is InputEventMouseButton and event.is_pressed() and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_command(get_global_mouse_position())
-
-
-#处理玩家点击指令：只有矿点或仓库才行动
-func _handle_command(click_pos: Vector2) -> void:
-	#检查是否点到仓库
-	var warehouse := get_tree().get_first_node_in_group("warehouse")
-	if warehouse and warehouse.is_point_inside(click_pos):
-		_command_to_warehouse(warehouse)
-		return
-	#检查是否点到矿点（找点击位置附近最近的矿）
-	var ore := _find_ore_near(click_pos)
-	if ore:
-		_command_to_ore(ore)
-		return
-
-
-#找点击位置附近（1格内）的矿点
-func _find_ore_near(pos: Vector2) -> Ore:
-	var closest: Ore = null
-	var closest_dist: float = 48.0  #约0.75格
-	for node in get_tree().get_nodes_in_group("ore"):
-		var ore := node as Ore
-		if not ore:
-			continue
-		var dist := ore.global_position.distance_to(pos)
-		if dist < closest_dist:
-			closest_dist = dist
-			closest = ore
-	return closest
-
-
-#指令：去采矿
-func _command_to_ore(ore: Ore) -> void:
-	if backpack >= max_capacity:
-		return  #背包满了不采矿
-	#记录到记忆矿点
-	if not known_ores.has(ore):
-		known_ores.append(ore)
-	target_ore = ore
-	target_pos = ore.global_position
-	state = State.MOVING_TO_ORE
-
-
-#指令：去仓库入库
-func _command_to_warehouse(warehouse: WareHouse) -> void:
-	if backpack <= 0:
-		return  #空背包不去仓库
-	target_pos = warehouse.global_position
-	state = State.MOVING_TO_WAREHOUSE
-
-
-func _physics_process(delta: float) -> void:
-	#鸟群分离：所有状态下都生效，防止堆叠
-	var separation := _get_separation_dir()
-	match state:
-		State.IDLE:
-			animated_sprite.pause()
-			if separation != Vector2.ZERO:
-				position += separation * 60.0 * delta
-			_auto_decide()
-		State.MOVING_TO_ORE, State.MOVING_TO_WAREHOUSE:
-			_move_toward_target(delta, separation)
-		State.MINING:
-			_do_mining(delta)
-			if separation != Vector2.ZERO:
-				position += separation * 40.0 * delta
-		State.DEPOSITING:
-			_do_deposit()
-			if separation != Vector2.ZERO:
-				position += separation * 40.0 * delta
-
-
-#计算分离方向：远离附近的其他机器人
-func _get_separation_dir() -> Vector2:
-	var steer := Vector2.ZERO
-	for node in get_tree().get_nodes_in_group("robot"):
-		var other := node as Robot
-		if not other or other == self:
-			continue
-		var diff := global_position - other.global_position
-		var dist := diff.length()
-		if dist < separation_radius and dist > 0.01:
-			#越近排斥力越大
-			steer += diff.normalized() * (1.0 - dist / separation_radius)
-	return steer.normalized() * separation_weight
-
-
-#朝目标移动（叠加分离方向）
-func _move_toward_target(delta: float, separation: Vector2) -> void:
-	var dir := target_pos - global_position
-	var dist := dir.length()
-	if dist <= arrive_threshold:
-		_on_arrived()
-		return
-	dir = dir.normalized()
-	#叠加分离力
-	var final_dir := (dir + separation).normalized()
-	velocity = final_dir * move_speed
-	move_and_slide()
-	#根据移动方向切换动画
-	if final_dir.y > 0:
-		animated_sprite.play("walk_front")
+	if _is_selected:
+		anim.modulate = Color(0.6, 1.0, 0.6, 1.0)      # 选中变绿
 	else:
-		animated_sprite.play("walk_back")
+		anim.modulate = _original_modulate
 
 
-#到达目标
-func _on_arrived() -> void:
+# ==================== 外部命令：挖某个矿 ====================
+func set_mine_target(ore: Node2D) -> void:
+	if ore == null or not is_instance_valid(ore):
+		return
+	_target_ore = ore
+	_state = State.MOVING
+	print("机器人 %s 收到挖矿任务：%s" % [name, ore.name])
+
+
+# ==================== 每帧逻辑 ====================
+func _physics_process(delta: float) -> void:
+	match _state:
+		State.IDLE:
+			_tick_idle()
+		State.MOVING:
+			_tick_moving()
+		State.MINING:
+			# 挖矿中不动，动画在 _start_mining 里已经播了
+			velocity = Vector2.ZERO
+			move_and_slide()
+		State.RETURNING:
+			_tick_returning()
+		State.DEPOSITING:
+			velocity = Vector2.ZERO
+			move_and_slide()
+
+
+# ==================== 待机 ====================
+func _tick_idle() -> void:
 	velocity = Vector2.ZERO
-	if state == State.MOVING_TO_ORE:
-		state = State.MINING
-		_mine_timer = 0.0
-	elif state == State.MOVING_TO_WAREHOUSE:
-		state = State.DEPOSITING
+	move_and_slide()
+	_play_anim("idle")
 
 
-#采矿逻辑：每 mine_interval 秒交互一次
-func _do_mining(delta: float) -> void:
-	animated_sprite.pause()
-	if not target_ore or not is_instance_valid(target_ore):
-		state = State.IDLE
+# ==================== 走向矿石 ====================
+func _tick_moving() -> void:
+	if _target_ore == null or not is_instance_valid(_target_ore):
+		# 目标丢了
+		_target_ore = null
+		_go_idle_or_return()
 		return
-	if backpack >= max_capacity:
-		state = State.IDLE
+
+	var dist := global_position.distance_to(_target_ore.global_position)
+
+	if dist <= mine_range:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_start_mining()
 		return
-	_mine_timer += delta
-	if _mine_timer >= mine_interval:
-		_mine_timer = 0.0
-		if target_ore.robot_interact():
-			backpack += 1
-			if backpack >= max_capacity:
-				state = State.IDLE
+
+	var dir := (_target_ore.global_position - global_position).normalized()
+	velocity = dir * move_speed
+	move_and_slide()
+
+	if anim and abs(dir.x) > 0.01:
+		anim.flip_h = dir.x < 0
+	_play_anim("walk")
 
 
-#入库逻辑
-func _do_deposit() -> void:
-	animated_sprite.pause()
-	var warehouse := get_tree().get_first_node_in_group("warehouse") as WareHouse
-	if warehouse:
-		warehouse.robot_deposit(self)
-	state = State.IDLE
+# ==================== 回仓库 ====================
+func _tick_returning() -> void:
+	if _warehouse == null or not is_instance_valid(_warehouse):
+		_warehouse = get_tree().get_first_node_in_group("warehouse")
+		if _warehouse == null:
+			_go_idle_or_return()
+			return
 
+	var dist := global_position.distance_to(_warehouse.global_position)
 
-#自动决策：IDLE 时调用，形成采矿循环
-func _auto_decide() -> void:
-	#背包满 → 自动去仓库入库
-	if backpack >= max_capacity:
-		var warehouse := get_tree().get_first_node_in_group("warehouse")
-		if warehouse:
-			target_pos = warehouse.global_position
-			state = State.MOVING_TO_WAREHOUSE
+	if dist <= deposit_range:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_start_deposit()
 		return
-	#背包有空 + 有记忆矿点 → 去最近的矿点
-	if known_ores.size() > 0:
-		var ore := _find_nearest_ore()
-		if ore:
-			target_ore = ore
-			target_pos = ore.global_position
-			state = State.MOVING_TO_ORE
+
+	var dir := (_warehouse.global_position - global_position).normalized()
+	velocity = dir * move_speed
+	move_and_slide()
+
+	if anim and abs(dir.x) > 0.01:
+		anim.flip_h = dir.x < 0
+	_play_anim("walk")
 
 
-#找最近的有效记忆矿点，顺带清理已失效的矿点
-func _find_nearest_ore() -> Ore:
-	var closest: Ore = null
-	var closest_dist := INF
-	for i in range(known_ores.size() - 1, -1, -1):
-		var ore := known_ores[i]
-		if not is_instance_valid(ore):
-			known_ores.remove_at(i)
-			continue
-		var dist := global_position.distance_to(ore.global_position)
-		if dist < closest_dist:
-			closest_dist = dist
-			closest = ore
-	return closest
+# ==================== 开始挖矿 ====================
+func _start_mining() -> void:
+	if _state == State.MINING:
+		return
+	_state = State.MINING
+	_play_anim("mine")
+
+	await get_tree().create_timer(mine_time).timeout
+
+	if is_instance_valid(_target_ore) and _target_ore.has_method("mine"):
+		_target_ore.mine()
+		_carry_count += 1
+		print("机器人 %s 携带 %d / %d" % [name, _carry_count, carry_capacity])
+
+	_target_ore = null
+
+	# 携带满了就回仓库，否则继续待机
+	if _carry_count >= carry_capacity:
+		_state = State.RETURNING
+	else:
+		_state = State.IDLE
+
+
+# ==================== 卸货 ====================
+func _start_deposit() -> void:
+	if _state == State.DEPOSITING:
+		return
+	_state = State.DEPOSITING
+
+	# 卸货
+	GameManager.add_item("copper", _carry_count)
+	print("机器人 %s 卸货 %d 个铜矿" % [name, _carry_count])
+	_carry_count = 0
+
+	# 稍等一下再回去
+	await get_tree().create_timer(0.3).timeout
+	_state = State.IDLE
+
+
+# ==================== 工具：回到待机 / 回仓库 ====================
+func _go_idle_or_return() -> void:
+	if _carry_count > 0:
+		_state = State.RETURNING
+	else:
+		_state = State.IDLE
+
+
+# ==================== 播放动画（避免每帧重播） ====================
+func _play_anim(anim_name: String) -> void:
+	if anim == null:
+		return
+	if anim.animation != anim_name or not anim.is_playing():
+		anim.play(anim_name)

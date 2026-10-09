@@ -86,6 +86,7 @@ func _make_tech_row(tech_id:String)->Control:
 	cost_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	row.add_child(cost_label)
 	
+	
 	#按钮
 	var btn:=Button.new()
 	btn.custom_minimum_size=Vector2(120,44)
@@ -95,12 +96,13 @@ func _make_tech_row(tech_id:String)->Control:
 	elif GameManager.can_unlock_tech(tech_id):
 		btn.text="解锁"
 		btn.disabled=false
-		btn.pressed.connect(func ():GameManager.unlock_tech(tech_id))
+		btn.pressed.connect(func ():
+			GameManager.unlock_tech(tech_id)
+			_close())
 	else:
 		btn.text="资源不足"
 		btn.disabled=true
 	row.add_child(btn)
-	
 	return row
 
 func _apply_fullscreen_layout() -> void:
