@@ -54,6 +54,8 @@ tile_set = SubResource("TileSet_40dut")
 
 [node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
 
+[node name="RobotContainer" type="Node2D" parent="."]
+
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
 zoom = Vector2(0.2, 0.2)
 script = ExtResource("4_whfxa")

@@ -5,6 +5,7 @@ extends Node2D
 @onready var camera_2d: CameraController = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
 @onready var ware_house: WareHouse = $WareHouse
+@onready var robot_container: Node2D = $RobotContainer
 
 # 地图种子
 @export var map_seed: int = 0
@@ -21,6 +22,23 @@ const NO_ORE_RADIUS := 10.0
 const TARGET_PATCH_COUNT := 40          # 目标矿区数量
 const MAX_ORE_ATTEMPTS := 3000
 
+const ROBOT_SCENE: PackedScene = preload("res://scene/robot.tscn")
+
+const TILE_SIZE := 64
+const MAP_SIZE := Vector2i(128, 128)
+const LAND_CAP := -0.3
+const ORE_CAP := 0.55
+
+const ORE_PATCH_COUNT := 40
+const ORE_PATCH_MIN := 1
+const ORE_PATCH_MAX := 6
+
+# 中心留空
+const NO_ORE_RADIUS := 10.0
+
+const TARGET_PATCH_COUNT := ORE_PATCH_COUNT  # 目标矿区数量
+const MAX_ORE_ATTEMPTS := 3000
+
 # 所有矿区（每个元素是一个矿区的格子数组），按离仓库由近到远排序
 var _ore_patches: Array = []
 # 当前解锁到第几块矿区
@@ -32,6 +50,7 @@ func _ready() -> void:
 	_place_warehouse()
 	_setup_camera()
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
+	_spawn_robots()
 
 
 # ==================== 仓库居中 ====================
@@ -41,11 +60,35 @@ func _place_warehouse() -> void:
 	ware_house.set_center_to(pos)
 
 
+# 在仓库附近生成初始机器人
+func _spawn_robots() -> void:
+	var count := 3
+	for i in count:
+		var robot: Robot = ROBOT_SCENE.instantiate()
+		var angle := float(i) / float(count) * TAU
+		var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
+		robot.global_position = ware_house.global_position + offset
+		robot_container.add_child(robot)
+
+
 # ==================== 生成世界 ====================
 func generate_world() -> void:
 	if map_seed == 0:
 		map_seed = randi()
 	print("种子：", map_seed)
+
+	#创造地图
+	var height_noise = FastNoiseLite.new()
+	#种子
+	height_noise.seed = randi()
+	height_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	height_noise.frequency = 0.0004
+	height_noise.fractal_octaves = 2
+
+	var center := Vector2(MAP_SIZE.x * 0.5, MAP_SIZE.y * 0.5)
+	var water_cells: Array[Vector2i] = []
+	var center_cell := Vector2i(MAP_SIZE.x / 2, MAP_SIZE.y / 2)
+	var ground_cells: Array[Vector2i] = []
 
 	# 铺地面
 	var ground_cells: Array[Vector2i] = []

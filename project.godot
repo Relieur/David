@@ -11,8 +11,8 @@ config_version=5
 [application]
 
 config/name="GameJame"
+run/main_scene="uid://c1p7kh5rtr5uk"
 config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://icon.svg"
 
 [autoload]
 
@@ -20,8 +20,8 @@ GameManager="*uid://csjscxthnlohf"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=1920
+window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

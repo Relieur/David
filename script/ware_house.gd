@@ -36,8 +36,16 @@ func is_point_inside(world_pos:Vector2)->bool:
 	if shape is RectangleShape2D:
 		var rect:=shape as RectangleShape2D
 		var half : Vector2= rect.size*0.5
-		return abs(local.x)<=half.x and abs(local.y) <=half.y 
+		return abs(local.x)<=half.x and abs(local.y) <=half.y
 	elif shape is CircleShape2D:
 		var circle=shape as CircleShape2D
 		return local.length()<=circle.radius
 	return false
+
+#机器人入库：将背包内容全部存入，返回存入数量
+func robot_deposit(robot) -> int:
+	var amount: int = robot.backpack
+	if amount > 0:
+		GameManager.add_item(robot.carry_type, amount)
+		robot.backpack = 0
+	return amount
