@@ -1,8 +1,8 @@
 # Godot 4+ 缓存/生成数据，完全忽略
 /.godot/
 
-# Godot 导入/临时文件
-*.import
+# Godot 临时文件
+# 注意：.import 文件必须提交（含资源 UID 映射），不可忽略
 *.tmp
 *.bak
 *.log
