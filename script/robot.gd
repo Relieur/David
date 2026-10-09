@@ -18,6 +18,7 @@ var target_pos: Vector2 = Vector2.ZERO
 var target_ore: Ore = null
 var _mine_timer: float = 0.0
 var _is_selected: bool = false
+var known_ores: Array[Ore] = []  #记忆中的矿点，用于自主采矿
 
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var shadow: Sprite2D = $Shadow
@@ -115,6 +116,9 @@ func _find_ore_near(pos: Vector2) -> Ore:
 func _command_to_ore(ore: Ore) -> void:
 	if backpack >= max_capacity:
 		return  #背包满了不采矿
+	#记录到记忆矿点
+	if not known_ores.has(ore):
+		known_ores.append(ore)
 	target_ore = ore
 	target_pos = ore.global_position
 	state = State.MOVING_TO_ORE
@@ -136,6 +140,7 @@ func _physics_process(delta: float) -> void:
 			animated_sprite.pause()
 			if separation != Vector2.ZERO:
 				position += separation * 60.0 * delta
+			_auto_decide()
 		State.MOVING_TO_ORE, State.MOVING_TO_WAREHOUSE:
 			_move_toward_target(delta, separation)
 		State.MINING:
@@ -217,3 +222,37 @@ func _do_deposit() -> void:
 	if warehouse:
 		warehouse.robot_deposit(self)
 	state = State.IDLE
+
+
+#自动决策：IDLE 时调用，形成采矿循环
+func _auto_decide() -> void:
+	#背包满 → 自动去仓库入库
+	if backpack >= max_capacity:
+		var warehouse := get_tree().get_first_node_in_group("warehouse")
+		if warehouse:
+			target_pos = warehouse.global_position
+			state = State.MOVING_TO_WAREHOUSE
+		return
+	#背包有空 + 有记忆矿点 → 去最近的矿点
+	if known_ores.size() > 0:
+		var ore := _find_nearest_ore()
+		if ore:
+			target_ore = ore
+			target_pos = ore.global_position
+			state = State.MOVING_TO_ORE
+
+
+#找最近的有效记忆矿点，顺带清理已失效的矿点
+func _find_nearest_ore() -> Ore:
+	var closest: Ore = null
+	var closest_dist := INF
+	for i in range(known_ores.size() - 1, -1, -1):
+		var ore := known_ores[i]
+		if not is_instance_valid(ore):
+			known_ores.remove_at(i)
+			continue
+		var dist := global_position.distance_to(ore.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest = ore
+	return closest
