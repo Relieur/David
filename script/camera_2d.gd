@@ -15,7 +15,7 @@ var _target_position:Vector2
 var _home_position:Vector2
 var map_size_px:Vector2=Vector2(2048,2048)
 var viewport_size:Vector2=Vector2(1280,720)
-
+var _flying: bool = false
 
 
 func _ready() -> void:
@@ -27,6 +27,8 @@ func _ready() -> void:
 	
 
 func _process(delta: float) -> void:
+	if _flying:
+		return
 	var dir :=Vector2.ZERO
 	if Input.is_action_pressed("move_right"):
 		dir.x+=1
@@ -54,6 +56,26 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.keycode==KEY_SPACE and event.pressed and not event.echo:
 		_target_position=_home_position
 
+
+func fly_to(target: Vector2, duration: float = 0.6) -> void:
+	# 如果已经在飞，先停止
+	if _flying:
+		return
+	_flying = true
+
+	# 同时更新内部目标位置，避免飞完之后又被 lerp 拉回去
+	_target_position = target
+
+	var start := position
+	var tween := create_tween()
+	tween.tween_method(
+		func(t): position = start.lerp(target, t),
+		0.0, 1.0, duration
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+	await tween.finished
+	position = target
+	_flying = false
 
 
 #缩放

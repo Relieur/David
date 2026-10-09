@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
 [ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
+[ext_resource type="PackedScene" uid="uid://1ft37vt4mhjs" path="res://scene/tech_tree_ui.tscn" id="8_j0btk"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -61,4 +62,7 @@ script = ExtResource("4_whfxa")
 
 [node name="WarehouseUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
 
+[node name="TechTreeUI" parent="UILayer" unique_id=44564573 instance=ExtResource("8_j0btk")]
+
 [node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
+default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)

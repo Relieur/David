@@ -1,0 +1,59 @@
+[gd_scene format=3 uid="uid://1ft37vt4mhjs"]
+
+[ext_resource type="Script" uid="uid://iaump632b3pe" path="res://script/tech_tree_ui.gd" id="1_il4nl"]
+
+[node name="TechTreeUI" type="Control" unique_id=44564573]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_il4nl")
+
+[node name="OpenButton" type="Button" parent="." unique_id=1528844332]
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+action_mode = 0
+text = "科技树"
+
+[node name="FullPanel" type="Control" parent="." unique_id=1339174633]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Dim" type="ColorRect" parent="FullPanel" unique_id=7958387]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Center" type="CenterContainer" parent="FullPanel" unique_id=78019597]
+layout_mode = 0
+offset_right = 600.0
+offset_bottom = 450.0
+
+[node name="Panel" type="PanelContainer" parent="FullPanel/Center" unique_id=1785090571]
+custom_minimum_size = Vector2(600, 450)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="FullPanel/Center/Panel" unique_id=755455557]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="FullPanel/Center/Panel/VBox" unique_id=655170419]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "科技树"
+horizontal_alignment = 1
+
+[node name="TechList" type="VBoxContainer" parent="FullPanel/Center/Panel/VBox" unique_id=760591847]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CloseButton" type="Button" parent="FullPanel/Center/Panel/VBox" unique_id=1746511737]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "关闭"

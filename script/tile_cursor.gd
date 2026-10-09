@@ -9,7 +9,7 @@ extends Line2D
 
 func _ready() -> void:
 	width=2.0
-	default_color=Color(1,1,1,0.8)
+	default_color=Color("0b8700")
 	antialiased=true
 	z_index=1000
 	top_level=true
