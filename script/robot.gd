@@ -205,6 +205,10 @@ func _start_mining() -> void:
 			return
 		if not is_instance_valid(ore) or not ore.has_method("mine"):
 			break
+		# 休耕意识：挖矿中耐久跌破 15% 则主动放弃该矿点
+		if _has_fallow() and _is_ore_depleted(ore):
+			print("机器人 %s 检测到矿点耐久过低，放弃开采" % name)
+			break
 		if ore.mine():
 			_carry_count += 1
 			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
@@ -268,13 +272,55 @@ func _cleanup_known_ores() -> void:
 	known_ores = valid
 
 
-# 选下一个目标矿点（memory_auto 阶段：选第一个未被占据的有效矿点；priority_sort 再优化为最近）
+# 选下一个目标矿点：priority_sort 解锁时选最近的，否则选第一个未被占据的
 func _find_next_ore() -> Node:
 	_cleanup_known_ores()
+	var candidates: Array = []
 	for o in known_ores:
 		if o.has_method("is_occupied") and not o.is_occupied():
-			return o
-	return null
+			# 休耕意识：耐久未恢复到 80% 以上不选为目标
+			if _has_fallow() and not _is_ore_ready(o):
+				continue
+			candidates.append(o)
+	if candidates.is_empty():
+		return null
+	if not _has_priority_sort():
+		return candidates[0]
+	# 选距离最近的
+	var best: Node = candidates[0]
+	var best_dist: float = global_position.distance_to(best.global_position)
+	for o in candidates:
+		var d := global_position.distance_to(o.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = o
+	return best
+
+
+# 矿点耐久是否 >= 80%（休耕意识下才会选为目标）
+func _is_ore_ready(ore: Node) -> bool:
+	var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+	if patch == null or not patch.has_method("get_durability_ratio"):
+		return true
+	return patch.get_durability_ratio() >= 0.8
+
+
+# 矿点耐久是否 <= 15%（休耕意识下挖矿中跌破即放弃）
+func _is_ore_depleted(ore: Node) -> bool:
+	var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+	if patch == null or not patch.has_method("get_durability_ratio"):
+		return false
+	return patch.get_durability_ratio() <= 0.15
+
+
+# 是否解锁「休耕意识」科技
+func _has_fallow() -> bool:
+	return GameManager.is_tech_unlocked("fallow")
+
+
+# 是否解锁「优先排序能力」科技
+func _has_priority_sort() -> bool:
+	return GameManager.is_tech_unlocked("priority_sort")
 
 
 # IDLE 时自动决策：解锁 memory_auto 后，背包满自动回仓，有空间自动去挖矿

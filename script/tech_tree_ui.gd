@@ -58,15 +58,20 @@ func _on_tech_unlocked(_tech_id:String)->void:
 func _refresh()->void:
 	for child in tech_list.get_children():
 		child.queue_free()
-	# 当前只展示「能力升级」分类（其余分类待策划定稿后再开放）
-	const SHOW_CATEGORY := "能力升级"
-	var techs_in_cat: Array[String] = []
-	for tech_id in GameManager.TECHS:
-		if GameManager.TECHS[tech_id].get("category", "") == SHOW_CATEGORY:
-			techs_in_cat.append(tech_id)
-	tech_list.add_child(_make_category_title(SHOW_CATEGORY))
-	for tech_id in techs_in_cat:
-		tech_list.add_child(_make_tech_row(tech_id))
+	# 已开放的分类（其余分类待策划定稿后再开放）
+	const OPEN_CATEGORIES := ["能力升级", "资源点升级"]
+	for category in GameManager.CATEGORY_ORDER:
+		if category not in OPEN_CATEGORIES:
+			continue
+		var techs_in_cat: Array[String] = []
+		for tech_id in GameManager.TECHS:
+			if GameManager.TECHS[tech_id].get("category", "") == category:
+				techs_in_cat.append(tech_id)
+		if techs_in_cat.is_empty():
+			continue
+		tech_list.add_child(_make_category_title(category))
+		for tech_id in techs_in_cat:
+			tech_list.add_child(_make_tech_row(tech_id))
 
 
 func _make_category_title(category: String) -> Control:

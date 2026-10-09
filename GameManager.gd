@@ -28,8 +28,7 @@ const TECHS := {
 	#资源点升级
 	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度", "cost": {"copper": 5}, "prereq": []},
 	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久", "cost": {"copper": 10}, "prereq": []},
-	"ore_drop_count": {"category": "资源点升级", "name": "资源点掉落矿物数", "desc": "每次采集掉落更多矿物", "cost": {"copper": 15}, "prereq": ["ore_durability"]},
-	"unlock_more_ores": {"category": "资源点升级", "name": "放置矿点", "desc": "花费铜矿，手动在地图指定位置放置一个固定形状的矿点", "cost": {"copper": 3}, "prereq": [], "max_level": 40},
+	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "解锁后 Reveal 下一个预放置的矿点区域", "cost": {"copper": 3}, "prereq": ["regen_speed"], "max_level": 40},
 	#机器人升级
 	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度", "cost": {"copper": 8}, "prereq": []},
 	"robot_backpack": {"category": "机器人升级", "name": "机器人背包", "desc": "解锁背包扩容能力", "cost": {"copper": 8}, "prereq": []},

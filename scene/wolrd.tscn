@@ -72,9 +72,15 @@ default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
 [node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
 position = Vector2(4384, 4448)
+durability = null
+regen_per_second = null
 
 [node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
 position = Vector2(5024, 4576)
+durability = null
+regen_per_second = null
 
 [node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
 position = Vector2(4448, 4640)
+durability = null
+regen_per_second = null

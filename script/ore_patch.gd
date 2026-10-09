@@ -25,6 +25,7 @@ var _ores: Array = []
 
 func _ready() -> void:
 	_collect_ores()
+	durability = _get_max_durability()
 	_update_visual()
 
 
@@ -51,9 +52,29 @@ func player_mine_at(world_pos: Vector2) -> bool:
 
 # 当前交互次数上限（耐久降低后变慢）
 func _interact_time() -> int:
-	if durability <= LOW_DURABILITY_THRESHOLD:
+	if durability <= _get_max_durability() * 0.15:
 		return LOW_DUR_INTERACT_TIME
 	return BASE_INTERACT_TIME
+
+
+# 最大耐久：基础 100，每级「资源点耐久度」科技 +50
+func _get_max_durability() -> float:
+	var level := GameManager.get_tech_level("ore_durability")
+	return 100.0 + 50.0 * float(level)
+
+
+# 补满到当前最大耐久（科技解锁后提升上限时调用）
+func refill_to_max() -> void:
+	durability = _get_max_durability()
+	_update_visual()
+
+
+# 当前耐久比例（0~1），供外部决策（如机器人休耕判断）
+func get_durability_ratio() -> float:
+	var max_d := _get_max_durability()
+	if max_d <= 0.0:
+		return 0.0
+	return durability / max_d
 
 
 # 累计一次交互，满 interact_time 时掉 1 矿并降低耐久，返回是否掉落
@@ -74,16 +95,23 @@ func _update_visual() -> void:
 			continue
 		var sprite := ore.get_node_or_null("Sprite2D") as Sprite2D
 		if sprite:
-			var t := durability / 100.0
+			var t := durability / _get_max_durability()
 			sprite.modulate = Color(0.5 + t * 0.5, 0.5 + t * 0.5, 0.5 + t * 0.5, 1.0)
 	queue_redraw()
 
 
-# 耐久缓慢恢复（每秒恢复 regen_per_second，最多回到 100）
+# 耐久缓慢恢复（基础 regen_per_second，受「资源再生速度」科技加成，最多回到最大耐久）
 func _process(delta: float) -> void:
-	if durability < 100.0:
-		durability = minf(100.0, durability + regen_per_second * delta)
+	var max_d := _get_max_durability()
+	if durability < max_d:
+		durability = minf(max_d, durability + _get_regen_rate() * delta)
 		_update_visual()
+
+
+# 实际恢复速度：每级「资源再生速度」科技 +100%
+func _get_regen_rate() -> float:
+	var level := GameManager.get_tech_level("regen_speed")
+	return regen_per_second * (1.0 + float(level))
 
 
 # 在矿点上方绘制耐久条
@@ -105,7 +133,7 @@ func _draw() -> void:
 	var bar_height := 8.0
 
 	draw_rect(Rect2(cx - bar_width * 0.5, bar_y, bar_width, bar_height), Color(0.15, 0.15, 0.15, 0.85))
-	var ratio := durability / 100.0
+	var ratio := durability / _get_max_durability()
 	draw_rect(Rect2(cx - bar_width * 0.5, bar_y, bar_width * ratio, bar_height), _durability_color(ratio))
 
 

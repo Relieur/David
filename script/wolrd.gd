@@ -98,6 +98,10 @@ func _on_tech_unlocked(tech_id: String) -> void:
 	if tech_id == "unlock_more_ores":
 		await get_tree().create_timer(0.3).timeout
 		_reveal_next_patch()
+	elif tech_id == "ore_durability":
+		for child in get_children():
+			if child is OrePatch:
+				child.refill_to_max()
 
 
 # 依次显示下一个预放置的矿点
