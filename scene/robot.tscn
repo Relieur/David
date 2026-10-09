@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://di757hat8ddxj"]
+
+[ext_resource type="Script" uid="uid://y1g53mfm16vy" path="res://script/robot.gd" id="1_robot"]
+[ext_resource type="Texture2D" uid="uid://cn1hr8v340nxw" path="res://art/robot/bot_shadow.png" id="2_shadow"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_robot"]
+radius = 22.0
+
+[node name="Robot" type="CharacterBody2D" unique_id=505881383]
+z_index = 10
+script = ExtResource("1_robot")
+
+[node name="Shadow" type="Sprite2D" parent="." unique_id=1557324495]
+z_index = -1
+position = Vector2(0, 12)
+texture = ExtResource("2_shadow")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=2139310839]
+position = Vector2(0, -4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=876096632]
+shape = SubResource("CircleShape2D_robot")
