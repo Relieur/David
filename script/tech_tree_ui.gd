@@ -31,6 +31,15 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode==KEY_ESCAPE and full_panel.visible:
 			_close()
 
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not full_panel.visible:
+		return
+	# 面板打开时消费滚轮事件，避免下层相机同步缩放（ScrollContainer 已先处理）
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			get_viewport().set_input_as_handled()
+
 #打开
 func _open()->void:
 	full_panel.visible=true

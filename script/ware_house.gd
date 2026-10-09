@@ -10,7 +10,19 @@ const  TILE_SIZE=64
 
 func _ready() -> void:
 	add_to_group("warehouse")
+	input_pickable = true
+	if not input_event.is_connected(_on_input_event):
+		input_event.connect(_on_input_event)
 	_align_to_grid()
+
+
+# 点击仓库：若已选中机器人，则手动指挥它返回卸货
+func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		get_viewport().set_input_as_handled()
+		var robot = GameManager.selected_robot
+		if robot != null and is_instance_valid(robot) and robot.has_method("command_return"):
+			robot.command_return()
 
 #对齐
 func _align_to_grid()->void:

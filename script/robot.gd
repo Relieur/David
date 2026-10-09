@@ -22,6 +22,7 @@ var _is_selected: bool = false
 var _carry_count: int = 0
 var _command_token: int = 0                  # 每次指派新目标 +1，用于打断旧采矿循环
 var _original_modulate: Color = Color.WHITE
+var known_ores: Array = []                   # 记忆的矿点（Ore 节点引用）
 
 
 # ==================== 生命周期 ====================
@@ -60,10 +61,19 @@ func _on_robot_selected(robot: Node) -> void:
 func set_mine_target(ore: Node2D) -> void:
 	if ore == null or not is_instance_valid(ore):
 		return
+	_remember_ore(ore)
 	_command_token += 1
 	_target_ore = ore
 	_state = State.MOVING
 	print("机器人 %s 收到挖矿任务：%s" % [name, ore.name])
+
+
+# ==================== 外部命令：手动返回仓库卸货 ====================
+func command_return() -> void:
+	_command_token += 1
+	_target_ore = null
+	_state = State.RETURNING
+	print("机器人 %s 收到手动返回仓库指令" % name)
 
 
 # ==================== 每帧逻辑 ====================
@@ -107,6 +117,9 @@ func _get_separation_velocity() -> Vector2:
 
 # ==================== 待机 ====================
 func _tick_idle() -> void:
+	_auto_decide()
+	if _state != State.IDLE:
+		return
 	velocity = Vector2.ZERO
 	move_and_slide()
 	_play_anim("idle")
@@ -200,8 +213,8 @@ func _start_mining() -> void:
 		ore.release(self)
 	_target_ore = null
 
-	# 背包装满后自行回仓库；否则（矿点丢失）回到待机
-	if _carry_count >= carry_capacity:
+	# 背包装满：解锁「坐标点记忆、自动寻路」后自动回仓库，否则原地待命
+	if _carry_count >= carry_capacity and _has_auto_return():
 		_state = State.RETURNING
 	else:
 		_state = State.IDLE
@@ -225,10 +238,58 @@ func _start_deposit() -> void:
 
 # ==================== 工具：回到待机 / 回仓库 ====================
 func _go_idle_or_return() -> void:
-	if _carry_count > 0:
+	if _carry_count > 0 and _has_auto_return():
 		_state = State.RETURNING
 	else:
 		_state = State.IDLE
+
+
+# 是否解锁「坐标点记忆、自动寻路」科技
+func _has_auto_return() -> bool:
+	return GameManager.is_tech_unlocked("memory_auto")
+
+
+# ==================== 矿点记忆 ====================
+func _remember_ore(ore: Node) -> void:
+	if ore == null or not is_instance_valid(ore):
+		return
+	for o in known_ores:
+		if o == ore:
+			return
+	known_ores.append(ore)
+
+
+# 清理失效引用，保证列表里都是有效节点
+func _cleanup_known_ores() -> void:
+	var valid: Array = []
+	for o in known_ores:
+		if is_instance_valid(o):
+			valid.append(o)
+	known_ores = valid
+
+
+# 选下一个目标矿点（memory_auto 阶段：选第一个未被占据的有效矿点；priority_sort 再优化为最近）
+func _find_next_ore() -> Node:
+	_cleanup_known_ores()
+	for o in known_ores:
+		if o.has_method("is_occupied") and not o.is_occupied():
+			return o
+	return null
+
+
+# IDLE 时自动决策：解锁 memory_auto 后，背包满自动回仓，有空间自动去挖矿
+func _auto_decide() -> void:
+	if not _has_auto_return():
+		return
+	if _carry_count >= carry_capacity:
+		_state = State.RETURNING
+		return
+	if _carry_count < carry_capacity:
+		var ore := _find_next_ore()
+		if ore != null:
+			_command_token += 1
+			_target_ore = ore
+			_state = State.MOVING
 
 
 # ==================== 播放动画（避免每帧重播） ====================

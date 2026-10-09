@@ -16,6 +16,8 @@ var _home_position:Vector2
 var map_size_px:Vector2=Vector2(2048,2048)
 var viewport_size:Vector2=Vector2(1280,720)
 var _flying: bool = false
+var _is_panning: bool = false
+var _pan_last_screen: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -29,6 +31,19 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _flying:
 		return
+
+	# 中键拖动地图：优先处理，跳过键盘移动
+	if _is_panning:
+		var mouse_screen := get_viewport().get_mouse_position()
+		var delta_screen := mouse_screen - _pan_last_screen
+		_pan_last_screen = mouse_screen
+		# 屏幕像素差 / zoom = 世界像素差；拖动方向与相机移动方向相反
+		var delta_world := delta_screen / zoom.x
+		_target_position -= delta_world
+		_clamp_target()
+		position = _target_position
+		return
+
 	var dir :=Vector2.ZERO
 	if Input.is_action_pressed("move_right"):
 		dir.x+=1
@@ -41,12 +56,17 @@ func _process(delta: float) -> void:
 	if dir !=Vector2.ZERO:
 		dir =dir.normalized()
 		_target_position+= dir * move_speed * delta
-	
-	if limit_to_map:
-		var half_view:=viewport_size *0.5 / zoom
-		_target_position.x=clamp(_target_position.x,half_view.x,map_size_px.x-half_view.x)
-		_target_position.y=clamp(_target_position.y,half_view.y,map_size_px.y-half_view.y)
+
+	_clamp_target()
 	position=position.lerp(_target_position,smooth*delta)
+
+
+func _clamp_target() -> void:
+	if not limit_to_map:
+		return
+	var half_view:=viewport_size *0.5 / zoom
+	_target_position.x=clamp(_target_position.x,half_view.x,map_size_px.x-half_view.x)
+	_target_position.y=clamp(_target_position.y,half_view.y,map_size_px.y-half_view.y)
 
 func set_target(pos: Vector2) -> void:
 	position = pos
@@ -78,13 +98,21 @@ func fly_to(target: Vector2, duration: float = 0.6) -> void:
 	_flying = false
 
 
-#缩放
+#缩放与中键拖动
 func _unhandled_input(event:InputEvent)->void:
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index==MOUSE_BUTTON_WHEEL_UP:
-			_zoom_at_mouse(1.0 + zoom_step)
-		elif  event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom_at_mouse(1.0 - zoom_step)
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				_is_panning = true
+				_pan_last_screen = get_viewport().get_mouse_position()
+			else:
+				_is_panning = false
+			get_viewport().set_input_as_handled()
+		elif event.pressed:
+			if event.button_index==MOUSE_BUTTON_WHEEL_UP:
+				_zoom_at_mouse(1.0 + zoom_step)
+			elif  event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
+				_zoom_at_mouse(1.0 - zoom_step)
 
 func _zoom_at_mouse(factor:float)->void:
 	var old_zoom:=zoom.x
