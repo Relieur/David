@@ -51,6 +51,9 @@ region_rect = Rect2(0, 0, 8192, 8192)
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=521502551]
 tile_set = SubResource("TileSet_40dut")
 
+[node name="DecorationContainer" type="Node2D" parent="." unique_id=93210577]
+z_index = 1
+
 [node name="WareHouse" parent="." unique_id=1240451256 instance=ExtResource("4_bs68n")]
 
 [node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]

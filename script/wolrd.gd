@@ -5,14 +5,28 @@ extends Node2D
 @onready var drop_container: Node2D = $DropContainer
 @onready var ware_house: WareHouse = $WareHouse
 @onready var robot_container: Node2D = $RobotContainer
+@onready var decoration_container: Node2D = $DecorationContainer
 
 # ==================== 预加载 ====================
 const DROPPED_ITEM_SCENE: PackedScene = preload("res://scene/dropped_item.tscn")
 const ROBOT_SCENE: PackedScene = preload("res://scene/robot.tscn")
+const DECORATION_SCENE: PackedScene = preload("res://scene/decoration.tscn")
 
 # ==================== 尺寸 ====================
 const TILE_SIZE := 64
 const MAP_SIZE := Vector2i(128, 128)
+
+# ==================== 装饰散布 ====================
+const DECORATION_TEXTURES: Array[Texture2D] = [
+	preload("res://art/decoration/deco_1x1.png"),
+	preload("res://art/decoration/deco_2x2.png"),
+	preload("res://art/decoration/deco_2x3.png"),
+	preload("res://art/decoration/deco_4x4.png"),
+	preload("res://art/decoration/deco_4x6.png"),
+]
+
+@export var decoration_spacing := 30    # 装饰网格间距（单位：格），值越小越密
+@export var decoration_seed := 20261011  # 随机种子，调整可重排装饰布局
 
 # ==================== 机器人 ====================
 const INITIAL_ROBOT_COUNT := 3
@@ -24,6 +38,7 @@ var _reveal_index: int = 0
 
 func _ready() -> void:
 	generate_world()
+	_scatter_decorations()
 	_place_warehouse()
 	_setup_camera()
 	_spawn_robots()
@@ -66,6 +81,29 @@ func generate_world() -> void:
 		for y in MAP_SIZE.y:
 			ground_cells.append(Vector2i(x, y))
 	tilemap.set_cells_terrain_connect(ground_cells, 0, 1)
+
+
+# ==================== 随机均匀散布装饰 ====================
+func _scatter_decorations() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = decoration_seed
+	var map_px := Vector2(MAP_SIZE) * TILE_SIZE
+	var spacing_px := float(decoration_spacing) * TILE_SIZE
+	var cols := int(map_px.x / spacing_px)
+	var rows := int(map_px.y / spacing_px)
+	for gx in cols:
+		for gy in rows:
+			var tex := DECORATION_TEXTURES[rng.randi_range(0, DECORATION_TEXTURES.size() - 1)]
+			var deco := DECORATION_SCENE.instantiate() as Sprite2D
+			deco.texture = tex
+			# 每个网格单元内随机取一点，做到“随机但均匀”
+			var jitter := Vector2(rng.randf() * spacing_px, rng.randf() * spacing_px)
+			var half := tex.get_size() * 0.5
+			var pos := Vector2(gx * spacing_px, gy * spacing_px) + jitter
+			pos.x = clampf(pos.x, half.x, map_px.x - half.x)
+			pos.y = clampf(pos.y, half.y, map_px.y - half.y)
+			deco.position = pos
+			decoration_container.add_child(deco)
 
 
 # ==================== 摄像机 ====================

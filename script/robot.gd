@@ -145,9 +145,7 @@ func _tick_moving() -> void:
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
-	if anim and abs(dir.x) > 0.01:
-		anim.flip_h = dir.x < 0
-	_play_anim("walk")
+	_update_walk_anim(dir)
 
 
 # ==================== 回仓库 ====================
@@ -170,9 +168,7 @@ func _tick_returning() -> void:
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
-	if anim and abs(dir.x) > 0.01:
-		anim.flip_h = dir.x < 0
-	_play_anim("walk")
+	_update_walk_anim(dir)
 
 
 # ==================== 开始挖矿 ====================
@@ -190,8 +186,16 @@ func _start_mining() -> void:
 		_state = State.IDLE
 		return
 	_state = State.MINING
-	_play_anim("mine")
 	var token := _command_token
+
+	# 挖矿开始动画：播完再进入循环挖掘
+	await get_tree().create_timer(_play_anim_get_duration("mine_start")).timeout
+	# 等待期间被重新指派任务，本次采矿作废
+	if token != _command_token:
+		if is_instance_valid(ore):
+			ore.release(self)
+		return
+	_play_anim("mine_loop")
 
 	# 到达矿点后自动循环挖矿，直到背包装满
 	while _carry_count < carry_capacity:
@@ -216,6 +220,15 @@ func _start_mining() -> void:
 	if is_instance_valid(ore):
 		ore.release(self)
 	_target_ore = null
+
+	# 挖矿结束动画：播完再离开矿点
+	var end_wait := _play_anim_get_duration("mine_end")
+	if end_wait > 0.0:
+		var end_token := _command_token
+		await get_tree().create_timer(end_wait).timeout
+		# 等待期间被重新指派任务，交给新任务流程处理
+		if end_token != _command_token:
+			return
 
 	# 背包装满：解锁「坐标点记忆、自动寻路」后自动回仓库，否则原地待命
 	if _carry_count >= carry_capacity and _has_auto_return():
@@ -344,3 +357,29 @@ func _play_anim(anim_name: String) -> void:
 		return
 	if anim.animation != anim_name or not anim.is_playing():
 		anim.play(anim_name)
+
+
+# 根据移动方向切换行走动画：向画面上方移动时播放背面行走动画
+func _update_walk_anim(dir: Vector2) -> void:
+	if anim == null:
+		return
+	if abs(dir.x) > 0.01:
+		anim.flip_h = dir.x < 0
+	if dir.y < 0.0:
+		_play_anim("walk_back")
+	else:
+		_play_anim("walk")
+
+
+# 播放动画并返回其时长（秒），供计时器等待一次性动画播完
+func _play_anim_get_duration(anim_name: String) -> float:
+	if anim == null or anim.sprite_frames == null:
+		return 0.0
+	var sf: SpriteFrames = anim.sprite_frames
+	if not sf.has_animation(anim_name):
+		return 0.0
+	_play_anim(anim_name)
+	var total := 0.0
+	for i in sf.get_frame_count(anim_name):
+		total += sf.get_frame_duration(anim_name, i)
+	return total / maxf(sf.get_animation_speed(anim_name), 0.01)
