@@ -2,9 +2,9 @@ extends CharacterBody2D
 class_name Robot
 
 # ==================== 导出参数 ====================
-@export var move_speed: float = 300.0        # 移动速度
+@export var move_speed: float = 80.0        # 移动速度
 @export var mine_range: float = 80.0         # 进入这个距离就开始挖
-@export var mine_time: float = 0.5           # 每次挖矿耗时
+@export var mine_time: float = 2          # 每次挖矿耗时
 @export var carry_capacity: int = 1          # 携带上限
 @export var deposit_range: float = 60.0      # 进入仓库这个距离就算卸货
 
@@ -32,11 +32,40 @@ func _ready() -> void:
 	collision_mask = 0                    # 机器人与彼此不硬碰撞，靠软分离避免重叠/挤住
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
+	if not mouse_entered.is_connected(_on_mouse_entered):
+		mouse_entered.connect(_on_mouse_entered)
+	if not mouse_exited.is_connected(_on_mouse_exited):
+		mouse_exited.connect(_on_mouse_exited)
 	if anim:
 		_original_modulate = anim.modulate
 		_play_anim("idle")
 	_warehouse = get_tree().get_first_node_in_group("warehouse")
 	GameManager.robot_selected.connect(_on_robot_selected)
+	GameManager.tech_unlocked.connect(_on_tech_unlocked)
+	_update_carry_capacity()
+	_update_mine_time()
+
+
+# 科技升级回调：背包容量/采集速度变化时刷新对应属性
+func _on_tech_unlocked(tech_id: String) -> void:
+	if tech_id == "backpack_capacity" or tech_id == "robot_backpack":
+		_update_carry_capacity()
+	elif tech_id == "mine_speed":
+		_update_mine_time()
+
+
+# 根据「背包容量」科技等级刷新携带上限：基础 1，每级 +1
+func _update_carry_capacity() -> void:
+	var bonus := 0
+	if GameManager.is_tech_unlocked("robot_backpack"):
+		bonus = GameManager.get_tech_level("backpack_capacity")
+	carry_capacity = 1 + bonus
+
+
+# 根据「采集速度」科技等级刷新每次挖矿耗时：基础 2，每级 -0.25
+func _update_mine_time() -> void:
+	var level: int = GameManager.get_tech_level("mine_speed")
+	mine_time = 2.0 - 0.25 * float(level)
 
 
 # ==================== 点击选中 ====================
@@ -55,6 +84,56 @@ func _on_robot_selected(robot: Node) -> void:
 		anim.modulate = Color(0.6, 1.0, 0.6, 1.0)      # 选中变绿
 	else:
 		anim.modulate = _original_modulate
+
+
+# ==================== 悬停信息 ====================
+func _on_mouse_entered() -> void:
+	var popup: Node = get_tree().get_first_node_in_group("robot_popup")
+	if popup and popup.has_method("show_for"):
+		popup.show_for(self)
+
+
+func _on_mouse_exited() -> void:
+	var popup: Node = get_tree().get_first_node_in_group("robot_popup")
+	if popup and popup.has_method("hide_popup"):
+		popup.hide_popup(self)
+
+
+# 当前状态的文本描述
+func get_state_text() -> String:
+	match _state:
+		State.MINING:
+			return "挖矿中"
+		State.MOVING:
+			return "赶路（去矿点）"
+		State.RETURNING:
+			return "赶路（回仓库）"
+		State.DEPOSITING:
+			return "卸货中"
+		_:
+			return "等待指令"
+
+
+# 背包使用情况
+func get_backpack_text() -> String:
+	return "%d / %d" % [_carry_count, carry_capacity]
+
+
+# 记忆的坐标点（未解锁坐标点记忆时返回空字符串）
+func get_memory_text() -> String:
+	if not _has_auto_return():
+		return ""
+	_cleanup_known_ores()
+	if known_ores.is_empty():
+		return "坐标点：暂无记忆"
+	var result := "坐标点："
+	for i in known_ores.size():
+		var ore: Node = known_ores[i]
+		var pos: Vector2 = ore.global_position
+		if i > 0:
+			result += "  "
+		result += "(%d, %d)" % [roundi(pos.x), roundi(pos.y)]
+	return result
 
 
 # ==================== 外部命令：挖某个矿 ====================

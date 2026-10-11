@@ -27,12 +27,41 @@ func _ready() -> void:
 # 点击矿石：若已选中机器人则派它去挖（不计入玩家交互），否则玩家自行开采一次
 func _on_input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# 掉落物优先：若点击位置有掉落物覆盖（正在被玩家拖动），跳过挖矿
+		if _is_point_over_dropped_item(get_global_mouse_position()):
+			return
 		get_viewport().set_input_as_handled()
 		var robot = GameManager.selected_robot
 		if robot != null and is_instance_valid(robot) and robot.has_method("set_mine_target"):
 			robot.set_mine_target(self)
 		else:
 			player_mine()
+
+
+# 判断某世界坐标是否被掉落物覆盖（掉落物优先级高于挖矿）
+func _is_point_over_dropped_item(point: Vector2) -> bool:
+	var items := get_tree().get_nodes_in_group("dropped_items")
+	for item in items:
+		if not is_instance_valid(item):
+			continue
+		var dropped := item as DroppedItem
+		if dropped == null or not dropped.input_pickable:
+			continue
+		var shape: Shape2D = null
+		for child in dropped.get_children():
+			if child is CollisionShape2D and child.shape != null:
+				shape = child.shape
+				break
+		if shape == null:
+			continue
+		var local := dropped.to_local(point)
+		if shape is RectangleShape2D:
+			if Rect2(-shape.size * 0.5, shape.size).has_point(local):
+				return true
+		elif shape is CircleShape2D:
+			if local.length() <= shape.radius:
+				return true
+	return false
 
 
 # 玩家直接开采一次（不经过机器人），掉落矿物由矿点信号通知外部

@@ -1,16 +1,18 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://44n82bh2oeim"]
 
-[ext_resource type="Script" path="res://script/ore_patch.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://cral4cah3grmo" path="res://scene/ore.tscn" id="1_ore"]
+[ext_resource type="Script" uid="uid://d1p4f56tu0dbm" path="res://script/ore_patch.gd" id="1_script"]
 
-[node name="OrePatch" type="Node2D"]
+[node name="OrePatch" type="Node2D" unique_id=31899625]
 script = ExtResource("1_script")
 
-[node name="Ore1" parent="." instance=ExtResource("1_ore")]
-position = Vector2(0, 0)
+[node name="Ore1" parent="." unique_id=568420673 instance=ExtResource("1_ore")]
 
-[node name="Ore2" parent="." instance=ExtResource("1_ore")]
+[node name="Ore2" parent="." unique_id=1080251674 instance=ExtResource("1_ore")]
 position = Vector2(0, 64)
 
-[node name="Ore3" parent="." instance=ExtResource("1_ore")]
+[node name="Ore3" parent="." unique_id=1637520285 instance=ExtResource("1_ore")]
 position = Vector2(64, 64)
+
+[node name="Ore" parent="." unique_id=71541184 instance=ExtResource("1_ore")]
+position = Vector2(0, -64)

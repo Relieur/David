@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://2tpybtqed4se"]
+
+[ext_resource type="Script" uid="uid://c16oe52gg2c10" path="res://script/robot_popup.gd" id="1_popup"]
+[ext_resource type="Texture2D" uid="uid://dngfb2b1mcn4b" path="res://art/UI/UI_Popup_BG.png" id="2_popup"]
+
+[node name="RobotPopup" type="Control" unique_id=1942618488]
+custom_minimum_size = Vector2(360, 192)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 368.0
+offset_bottom = 200.0
+script = ExtResource("1_popup")
+
+[node name="BG" type="TextureRect" parent="." unique_id=499833669]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+offset_top = -112.0
+offset_right = -8.0
+offset_bottom = -112.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_popup")
+
+[node name="Margin" type="MarginContainer" parent="." unique_id=1678072012]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 104.0
+offset_top = -120.0
+offset_right = 104.0
+offset_bottom = -120.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 100
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 60
+
+[node name="VBox" type="VBoxContainer" parent="Margin" unique_id=1678072013]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StateLabel" type="Label" parent="Margin/VBox" unique_id=1757082058]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.70131457, 0.70131457, 0.70131457, 1)
+theme_override_font_sizes/font_size = 22
+text = "状态："
+
+[node name="BackpackLabel" type="Label" parent="Margin/VBox" unique_id=1674938272]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7747916, 0.9999997, 0.097635396, 1)
+theme_override_font_sizes/font_size = 22
+text = "背包："
+
+[node name="CoordsLabel" type="Label" parent="Margin/VBox" unique_id=1324119131]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7747916, 0.9999997, 0.097635396, 1)
+theme_override_font_sizes/font_size = 22
+text = "坐标点："

@@ -59,7 +59,7 @@ func _refresh()->void:
 	for child in tech_list.get_children():
 		child.queue_free()
 	# 已开放的分类（其余分类待策划定稿后再开放）
-	const OPEN_CATEGORIES := ["能力升级", "资源点升级"]
+	const OPEN_CATEGORIES := ["能力升级", "资源点升级", "机器人升级"]
 	for category in GameManager.CATEGORY_ORDER:
 		if category not in OPEN_CATEGORIES:
 			continue
@@ -131,9 +131,10 @@ func _make_tech_row(tech_id:String)->Control:
 	#需求
 	var cost_label:=Label.new()
 	var parts:Array[String]=[]
-	for item_type in tech["cost"]:
+	var cost:Dictionary = GameManager.get_tech_cost(tech_id)
+	for item_type in cost:
 		var display:String=ITEM_NAMES.get(item_type,item_type)
-		var need:int = tech["cost"][item_type]
+		var need:int = cost[item_type]
 		var have:int =GameManager.get_count(item_type)
 		parts.append("%s %d/%d"%[display,have,need])
 	cost_label.text="  ".join(parts)
@@ -145,7 +146,25 @@ func _make_tech_row(tech_id:String)->Control:
 	#按钮
 	var btn:=Button.new()
 	btn.custom_minimum_size=Vector2(120,44)
-	if GameManager.is_tech_unlocked(tech_id):
+	var max_level:int = tech.get("max_level", 1)
+	var level:int = GameManager.get_tech_level(tech_id)
+	if max_level > 1:
+		# 可重复升级：满级显示已满级，否则显示「升级 Lv.X」
+		if level >= max_level:
+			btn.text="已满级"
+			btn.disabled=true
+		elif not missing_prereq.is_empty():
+			btn.text="前置未满足"
+			btn.disabled=true
+		elif GameManager.can_unlock_tech(tech_id):
+			btn.text="升级 Lv.%d"%(level+1)
+			btn.disabled=false
+			btn.pressed.connect(func ():
+					GameManager.unlock_tech(tech_id))
+		else:
+			btn.text="资源不足"
+			btn.disabled=true
+	elif GameManager.is_tech_unlocked(tech_id):
 		btn.text="已解锁"
 		btn.disabled=true
 	elif not missing_prereq.is_empty():

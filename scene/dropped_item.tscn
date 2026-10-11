@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://cxl0ew5qdk51b"]
 
 [ext_resource type="Script" uid="uid://wq2jvt0l2qi8" path="res://script/dropped_item.gd" id="1_y8hqn"]
-[ext_resource type="Texture2D" path="res://art/Ore/Item_Ore.png" id="2_y8hqn"]
+[ext_resource type="Texture2D" uid="uid://k5b7ocglsvd2" path="res://art/Ore/Item_Ore.png" id="2_y8hqn"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
-size = Vector2(64, 64)
+size = Vector2(80, 80)
 
 [node name="DroppedItem" type="Area2D" unique_id=692131007]
 script = ExtResource("1_y8hqn")

@@ -11,15 +11,18 @@ var _deposited:bool=false
 
 
 func _ready() -> void:
+	add_to_group("dropped_items")
 	input_pickable=true
-	z_index=10
+	z_index=50
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
-		set_process(false)
+	set_process(false)
 	
 #点击
 func _on_input_event(_viewport:Node,event:InputEvent,_shape_idx:int)->void:
 	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
+		# 掉落物优先响应：吞掉本次输入，避免底下的矿点误触发挖矿
+		get_viewport().set_input_as_handled()
 		_start_drag()
 
 #全局输入
@@ -53,7 +56,7 @@ func _process(delta: float) -> void:
 #拖拽结束
 func _end_drag()->void:
 	_dragging=false
-	z_index=10
+	z_index=50
 	input_pickable=true
 	set_process(false)
 	

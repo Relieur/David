@@ -29,7 +29,7 @@ const DECORATION_TEXTURES: Array[Texture2D] = [
 @export var decoration_seed := 20261011  # 随机种子，调整可重排装饰布局
 
 # ==================== 机器人 ====================
-const INITIAL_ROBOT_COUNT := 3
+const INITIAL_ROBOT_COUNT := 0
 
 # 玩家在场景里手动放置的矿点（按场景树顺序排列，开局全部隐藏）
 var _placed_patches: Array = []
@@ -57,11 +57,16 @@ func _place_warehouse() -> void:
 # ==================== 生成机器人 ====================
 func _spawn_robots() -> void:
 	for i in INITIAL_ROBOT_COUNT:
-		var robot := ROBOT_SCENE.instantiate()
-		var angle := float(i) / float(INITIAL_ROBOT_COUNT) * TAU
-		var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
-		robot.global_position = ware_house.global_position + offset
-		robot_container.add_child(robot)
+		_spawn_robot()
+
+
+# 生成一个机器人，随机放在仓库周围
+func _spawn_robot() -> void:
+	var robot := ROBOT_SCENE.instantiate()
+	var angle := randf() * TAU
+	var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
+	robot.global_position = ware_house.global_position + offset
+	robot_container.add_child(robot)
 
 
 # 取消选择机器人
@@ -140,6 +145,8 @@ func _on_tech_unlocked(tech_id: String) -> void:
 		for child in get_children():
 			if child is OrePatch:
 				child.refill_to_max()
+	elif tech_id == "add_robot":
+		_spawn_robot()
 
 
 # 依次显示下一个预放置的矿点

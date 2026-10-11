@@ -9,8 +9,10 @@
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 [ext_resource type="PackedScene" uid="uid://1ft37vt4mhjs" path="res://scene/tech_tree_ui.tscn" id="8_j0btk"]
 [ext_resource type="PackedScene" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
-[ext_resource type="PackedScene" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
+[ext_resource type="PackedScene" uid="uid://44n82bh2oeim" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
 [ext_resource type="PackedScene" path="res://scene/ore_patch_cross.tscn" id="11_pqfde"]
+[ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
+[ext_resource type="PackedScene" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -70,6 +72,8 @@ script = ExtResource("4_whfxa")
 
 [node name="TechTreeUI" parent="UILayer" unique_id=44564573 instance=ExtResource("8_j0btk")]
 
+[node name="RobotPopup" parent="UILayer" unique_id=1172523525 instance=ExtResource("12_popup")]
+
 [node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
@@ -84,6 +88,21 @@ durability = null
 regen_per_second = null
 
 [node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
-position = Vector2(4448, 4640)
+position = Vector2(4000, 4576)
 durability = null
 regen_per_second = null
+
+[node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
+position = Vector2(4064, 4000)
+
+[node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
+position = Vector2(4192, 3936)
+
+[node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
+position = Vector2(5144, 4512)
+
+[node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
+position = Vector2(4384, 4576)
+
+[node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
+position = Vector2(4000, 4704)
