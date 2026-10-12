@@ -23,6 +23,7 @@ var _carry_count: int = 0
 var _command_token: int = 0                  # 每次指派新目标 +1，用于打断旧采矿循环
 var _original_modulate: Color = Color.WHITE
 var known_ores: Array = []                   # 记忆的矿点（Ore 节点引用）
+var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫秒），防止来回倒腾
 
 
 # ==================== 生命周期 ====================
@@ -42,6 +43,7 @@ func _ready() -> void:
 	_warehouse = get_tree().get_first_node_in_group("warehouse")
 	GameManager.robot_selected.connect(_on_robot_selected)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
+	GameManager.ore_memory_shared.connect(_on_ore_memory_shared)
 	_update_carry_capacity()
 	_update_mine_time()
 
@@ -157,6 +159,9 @@ func command_return() -> void:
 
 # ==================== 每帧逻辑 ====================
 func _physics_process(delta: float) -> void:
+	# 挖矿中不参与交换，避免干扰采矿循环
+	if _state != State.MINING:
+		_try_resource_swap()
 	match _state:
 		State.IDLE:
 			_tick_idle()
@@ -176,6 +181,9 @@ func _physics_process(delta: float) -> void:
 # ==================== 避让：让机器人彼此推开，避免互相挤住 ====================
 const SEPARATION_RADIUS := 48.0           # 两机器人中心小于此距离时互相推开
 const SEPARATION_STRENGTH := 160.0        # 推开力度
+const DENSITY_RADIUS := 150.0             # 密度感知半径：统计此范围内的其他机器人
+const DENSITY_PENALTY := 120.0            # 每个附近机器人折算的等效距离代价
+const SWAP_RANGE := 60.0                  # 资源交换：与此距离内的同伴转交矿物
 
 
 func _get_separation_velocity() -> Vector2:
@@ -346,13 +354,26 @@ func _has_auto_return() -> bool:
 
 
 # ==================== 矿点记忆 ====================
-func _remember_ore(ore: Node) -> void:
+# 记住一个矿点；broadcast=true 时若解锁信息交流则广播给其他机器人（接收共享时传 false 避免循环）
+func _remember_ore(ore: Node, broadcast := true) -> void:
 	if ore == null or not is_instance_valid(ore):
 		return
 	for o in known_ores:
 		if o == ore:
 			return
 	known_ores.append(ore)
+	if broadcast and _has_info_share():
+		GameManager.ore_memory_shared.emit(ore)
+
+
+# 接收其他机器人共享的矿点记忆
+func _on_ore_memory_shared(ore: Node) -> void:
+	_remember_ore(ore, false)
+
+
+# 是否解锁「信息交流能力」科技
+func _has_info_share() -> bool:
+	return GameManager.is_tech_unlocked("info_share")
 
 
 # 清理失效引用，保证列表里都是有效节点
@@ -364,7 +385,7 @@ func _cleanup_known_ores() -> void:
 	known_ores = valid
 
 
-# 选下一个目标矿点：priority_sort 解锁时选最近的，否则选第一个未被占据的
+# 选下一个目标矿点：按综合评分选最优（距离近优先，密度感知解锁后额外避开拥堵）
 func _find_next_ore() -> Node:
 	_cleanup_known_ores()
 	var candidates: Array = []
@@ -376,17 +397,100 @@ func _find_next_ore() -> Node:
 			candidates.append(o)
 	if candidates.is_empty():
 		return null
-	if not _has_priority_sort():
+	# 未解锁优先排序且未解锁密度感知时，选第一个未被占据的
+	if not _has_priority_sort() and not _has_density():
 		return candidates[0]
-	# 选距离最近的
+	# 评分越低越优
 	var best: Node = candidates[0]
-	var best_dist: float = global_position.distance_to(best.global_position)
+	var best_score: float = _ore_score(best)
 	for o in candidates:
-		var d := global_position.distance_to(o.global_position)
-		if d < best_dist:
-			best_dist = d
+		var s: float = _ore_score(o)
+		if s < best_score:
+			best_score = s
 			best = o
 	return best
+
+
+# 目标矿点评分：距离越近分越低；密度感知解锁后，附近机器人越多分越高（惩罚拥堵）
+func _ore_score(ore: Node) -> float:
+	var score: float = global_position.distance_to(ore.global_position)
+	if _has_density():
+		var nearby: int = _count_robots_near(ore.global_position, DENSITY_RADIUS)
+		score += float(nearby) * DENSITY_PENALTY
+	return score
+
+
+# 统计某位置半径内的其他机器人数（密度感知）
+func _count_robots_near(pos: Vector2, radius: float) -> int:
+	var count := 0
+	for r in get_tree().get_nodes_in_group("robots"):
+		if r == self or not is_instance_valid(r):
+			continue
+		var r2d := r as Node2D
+		if r2d != null and r2d.global_position.distance_to(pos) <= radius:
+			count += 1
+	return count
+
+
+# 是否解锁「密度感知能力」科技
+func _has_density() -> bool:
+	return GameManager.is_tech_unlocked("density")
+
+
+# ==================== 资源交换：把矿物转交给附近空背包的同伴去回仓库 ====================
+func _try_resource_swap() -> void:
+	if not _has_resource_swap():
+		return
+	if _carry_count <= 0:
+		return
+	# 冷却期内不再交换，防止与同伴来回倒腾
+	if Time.get_ticks_msec() < _swap_cooldown_until:
+		return
+	var other := _find_swap_partner()
+	if other == null:
+		return
+	var space: int = other.carry_capacity - other._carry_count
+	if space <= 0:
+		return
+	var give: int = min(_carry_count, space)
+	_carry_count -= give
+	other._carry_count += give
+	# 双方进入冷却（2 秒），留出时间彼此分开
+	var cd: int = Time.get_ticks_msec() + 2000
+	_swap_cooldown_until = cd
+	other._swap_cooldown_until = cd
+	other.command_return()
+	print("机器人 %s 向 %s 转交 %d 个矿物" % [name, other.name, give])
+	# 自己货已转空且正在回仓库：回到待机继续挖矿，避免空跑
+	if _carry_count == 0 and _state == State.RETURNING:
+		_state = State.IDLE
+
+
+# 寻找附近可接收矿物的同伴（背包未满、比自己货少、且不在冷却中，避免互相倒腾）
+func _find_swap_partner() -> Robot:
+	var best: Robot = null
+	var best_dist: float = SWAP_RANGE
+	var now: int = Time.get_ticks_msec()
+	for r in get_tree().get_nodes_in_group("robots"):
+		if r == self or not is_instance_valid(r):
+			continue
+		var other := r as Robot
+		if other == null:
+			continue
+		if other._swap_cooldown_until > now:
+			continue
+		if other._carry_count >= other.carry_capacity or other._carry_count >= _carry_count:
+			continue
+		var d := global_position.distance_to(other.global_position)
+		if d <= best_dist:
+			best_dist = d
+			best = other
+	return best
+
+
+# 是否解锁「资源交换」科技
+func _has_resource_swap() -> bool:
+	return GameManager.is_tech_unlocked("resource_swap")
 
 
 # 矿点耐久是否 >= 80%（休耕意识下才会选为目标）

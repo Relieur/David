@@ -4,6 +4,7 @@ extends Node
 signal inventory_changed(inventory: Dictionary)
 signal tech_unlocked(tech_id: String)
 signal robot_selected(robot: Node)              # 新增
+signal ore_memory_shared(ore: Node)             # 机器人间共享记忆的矿点（信息交流能力）
 
 # ==================== 数据 ====================
 var inventory: Dictionary = {}

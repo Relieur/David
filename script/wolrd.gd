@@ -25,15 +25,18 @@ const DECORATION_TEXTURES: Array[Texture2D] = [
 	preload("res://art/decoration/deco_4x6.png"),
 ]
 
-@export var decoration_spacing := 30    # 装饰网格间距（单位：格），值越小越密
+@export var decoration_spacing := 15    # 装饰网格间距（单位：格），值越小越密
 @export var decoration_seed := 20261011  # 随机种子，调整可重排装饰布局
 
 # ==================== 机器人 ====================
 const INITIAL_ROBOT_COUNT := 0
+const REPRODUCE_INTERVAL := 15.0      # 繁殖能力：每隔多少秒自动生成一个机器人
+const REPRODUCE_MAX := 80             # 繁殖能力：机器人数量上限
 
 # 玩家在场景里手动放置的矿点（按场景树顺序排列，开局全部隐藏）
 var _placed_patches: Array = []
 var _reveal_index: int = 0
+var _reproduce_timer: float = 0.0      # 繁殖计时
 
 
 func _ready() -> void:
@@ -45,6 +48,8 @@ func _ready() -> void:
 	_collect_placed_patches()
 	_reveal_next_patch()
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
+	# [测试] 开局赠送 100 铜矿，方便测试科技树，后期删除
+	GameManager.add_item("copper", 100)
 
 
 # ==================== 仓库居中 ====================
@@ -67,6 +72,24 @@ func _spawn_robot() -> void:
 	var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
 	robot.global_position = ware_house.global_position + offset
 	robot_container.add_child(robot)
+
+
+# 每帧驱动繁殖计时
+func _process(delta: float) -> void:
+	_tick_reproduce(delta)
+
+
+# 繁殖能力：解锁后每隔 REPRODUCE_INTERVAL 秒在仓库周围生成一个新机器人，直到上限
+func _tick_reproduce(delta: float) -> void:
+	if not GameManager.is_tech_unlocked("reproduce"):
+		return
+	if robot_container.get_child_count() >= REPRODUCE_MAX:
+		return
+	_reproduce_timer += delta
+	if _reproduce_timer >= REPRODUCE_INTERVAL:
+		_reproduce_timer = 0.0
+		_spawn_robot()
+		print("机器人繁殖，当前数量 %d" % robot_container.get_child_count())
 
 
 # 取消选择机器人
