@@ -3,10 +3,13 @@ class_name RefiningFurnace   #精炼炉
 
 const TILE_SIZE := 64
 
-const SMELT_INTERVAL := 1.5          # 烧制 1 个铜锭耗时（秒）
-const ORES_PER_INGOT := 1            # 每个原矿产出 1 个铜锭
-const ORE_TYPE := "copper"           # 输入：铜原矿
-const INGOT_TYPE := "copper_ingot"   # 产出：铜锭
+const SMELT_INTERVAL_BASE := 1.5      # 基础烧制耗时（秒）
+const SMELT_TIME_PER_LEVEL := 0.25    # 「煅烧速度」每级减少的烧制耗时（秒）
+const DOUBLE_SMELT_BASE_CHANCE := 0.15  # 「无中生有」触发双倍产出的基础概率
+const CRIT_CHANCE_PER_LEVEL := 0.15     # 「暴击率」每级增加的双倍产出概率
+const ORES_PER_INGOT := 1             # 每个原矿产出 1 个铜锭
+const ORE_TYPE := "copper"            # 输入：铜原矿
+const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 
 @onready var collision_shape_2d: CollisionShape2D = $CollisionShape2D
 @onready var sprite_2d: Sprite2D = $Sprite2D
@@ -31,19 +34,38 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 			robot.command_return()
 
 
-# 自动烧制：库存有铜矿时，每 SMELT_INTERVAL 秒消耗 1 铜矿产出 1 铜锭
+# 自动烧制：库存有铜矿时，每「当前烧制耗时」消耗 1 铜矿产出 1 铜锭
 func _process(delta: float) -> void:
 	if GameManager.get_count(ORE_TYPE) <= 0:
 		if _smelt_timer != 0.0:
 			_smelt_timer = 0.0
 			queue_redraw()
 		return
+	var interval := _get_smelt_interval()
 	_smelt_timer += delta
-	while _smelt_timer >= SMELT_INTERVAL and GameManager.get_count(ORE_TYPE) > 0:
-		_smelt_timer -= SMELT_INTERVAL
+	while _smelt_timer >= interval and GameManager.get_count(ORE_TYPE) > 0:
+		_smelt_timer -= interval
 		GameManager.remove_item(ORE_TYPE, 1)
-		GameManager.add_item(INGOT_TYPE, ORES_PER_INGOT)
+		# 「无中生有」+「暴击率」：有概率一次烧出两个铜锭
+		var gained := ORES_PER_INGOT
+		if randf() < _get_double_chance():
+			gained = ORES_PER_INGOT * 2
+		GameManager.add_item(INGOT_TYPE, gained)
 	queue_redraw()
+
+
+# 当前双倍产出概率：未解锁「无中生有」为 0，否则 15% + 每级「暴击率」+15%
+func _get_double_chance() -> float:
+	if not GameManager.is_tech_unlocked("double_smelt"):
+		return 0.0
+	var crit_level := GameManager.get_tech_level("smelt_crit")
+	return DOUBLE_SMELT_BASE_CHANCE + CRIT_CHANCE_PER_LEVEL * float(crit_level)
+
+
+# 当前烧制耗时：基础 1.5 秒，每级「煅烧速度」-0.25 秒
+func _get_smelt_interval() -> float:
+	var level := GameManager.get_tech_level("smelt_speed")
+	return SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level)
 
 
 # 投入铜矿（机器人卸货 / 掉落物飞入）
@@ -55,7 +77,7 @@ func deposit_ore(amount: int) -> void:
 func _draw() -> void:
 	if GameManager.get_count(ORE_TYPE) <= 0:
 		return
-	var ratio := clampf(_smelt_timer / SMELT_INTERVAL, 0.0, 1.0)
+	var ratio := clampf(_smelt_timer / _get_smelt_interval(), 0.0, 1.0)
 	var bar_w := 96.0
 	var bar_h := 10.0
 	var bar_y := -_get_half_height() - 18.0

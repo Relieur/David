@@ -60,7 +60,7 @@ func _refresh()->void:
 	for child in tech_list.get_children():
 		child.queue_free()
 	# 已开放的分类（其余分类待策划定稿后再开放）
-	const OPEN_CATEGORIES := ["能力升级", "资源点升级", "机器人升级"]
+	const OPEN_CATEGORIES := ["能力升级", "资源点升级", "机器人升级", "精炼炉升级"]
 	for category in GameManager.CATEGORY_ORDER:
 		if category not in OPEN_CATEGORIES:
 			continue
