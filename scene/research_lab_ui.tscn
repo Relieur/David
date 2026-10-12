@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://cfxeo8qifpt2o"]
+
+[ext_resource type="Script" uid="uid://cbhf6i2iwlxkt" path="res://script/research_lab_ui.gd" id="1_lab"]
+
+[node name="ResearchLabUI" type="Control" unique_id=1987831952]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_lab")
+
+[node name="OpenButton" type="Button" parent="." unique_id=1256703958]
+layout_mode = 0
+offset_top = 64.0
+offset_right = 56.0
+offset_bottom = 95.0
+action_mode = 0
+text = "研究所"
+
+[node name="FullPanel" type="Control" parent="." unique_id=1430807946]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Dim" type="ColorRect" parent="FullPanel" unique_id=2020980082]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Center" type="CenterContainer" parent="FullPanel" unique_id=1384249278]
+layout_mode = 0
+offset_right = 600.0
+offset_bottom = 450.0
+
+[node name="Panel" type="PanelContainer" parent="FullPanel/Center" unique_id=1708911721]
+custom_minimum_size = Vector2(600, 450)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="FullPanel/Center/Panel" unique_id=2000960012]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="FullPanel/Center/Panel/VBox" unique_id=1318174154]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "研究所"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="FullPanel/Center/Panel/VBox" unique_id=623169637]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="StageList" type="VBoxContainer" parent="FullPanel/Center/Panel/VBox/Scroll" unique_id=1160556363]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CloseButton" type="Button" parent="FullPanel/Center/Panel/VBox" unique_id=2129307224]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "关闭"

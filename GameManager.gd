@@ -32,8 +32,7 @@ const TECHS := {
 	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "解锁后 Reveal 下一个预放置的矿点区域", "cost": {"copper_ingot": 3}, "prereq": ["regen_speed"], "max_level": 40},
 	#机器人升级
 	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度", "cost": {"copper_ingot": 8}, "prereq": []},
-	"robot_backpack": {"category": "机器人升级", "name": "机器人背包", "desc": "解锁背包扩容能力", "cost": {"copper_ingot": 8}, "prereq": []},
-	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": ["robot_backpack"], "max_level": 4, "dynamic_cost": true},
+	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": [], "max_level": 4, "dynamic_cost": true},
 	"mine_speed": {"category": "机器人升级", "name": "采集速度", "desc": "缩短机器人采矿耗时（每级 -0.25 秒）", "cost": {"copper_ingot": 15}, "prereq": [], "max_level": 5, "dynamic_cost": true},
 	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限（初始20，每级+20）", "prereq": [], "max_level": 3, "costs": [{"copper_ingot": 500}, {"copper_ingot": 800}, {"copper_ingot": 1200}]},
 	"add_robot": {"category": "机器人升级", "name": "添加机器人", "desc": "每升一级立即获得一个机器人", "cost": {"copper_ingot": 5}, "prereq": [], "max_level": 80, "dynamic_cost": true, "cost_growth": 1.15},
@@ -41,9 +40,10 @@ const TECHS := {
 	"smelt_speed": {"category": "精炼炉升级", "name": "煅烧速度", "desc": "提升精炼炉的烧制速度（每级 -0.25 秒）", "cost": {"copper_ingot": 50}, "prereq": [], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
 	"double_smelt": {"category": "精炼炉升级", "name": "无中生有", "desc": "精炼炉有 15% 概率一次烧出两个铜锭", "cost": {"copper_ingot": 200}, "prereq": ["smelt_speed"], "lab_stage": 1},
 	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 200}, "prereq": ["double_smelt"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
+	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "在地图上新增一个精炼炉，并行烧制", "cost": {"copper_ingot": 80}, "prereq": [], "max_level": 4, "dynamic_cost": true, "lab_stage": 0},
 	#巨型玻璃罩
 	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": []},
-}
+	}
 
 # ==================== 资源 ====================
 func add_item(item_type: String, amount: int) -> void:

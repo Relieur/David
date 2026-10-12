@@ -29,11 +29,26 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 		_fly_home()
 
 
-# 飞向精炼炉，到达后投入烧制
+# 找离自己最近的精炼炉
+func _find_nearest_furnace() -> Node2D:
+	var furnaces := get_tree().get_nodes_in_group("furnace")
+	var best: Node2D = null
+	var best_dist := INF
+	for f in furnaces:
+		if not is_instance_valid(f):
+			continue
+		var d := global_position.distance_to(f.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = f
+	return best
+
+
+# 飞向最近的精炼炉，到达后投入烧制
 func _fly_home() -> void:
 	if _deposited:
 		return
-	var furnace := get_tree().get_first_node_in_group("furnace")
+	var furnace := _find_nearest_furnace()
 	if furnace == null:
 		return
 	input_pickable = false

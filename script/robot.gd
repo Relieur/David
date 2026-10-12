@@ -40,7 +40,7 @@ func _ready() -> void:
 	if anim:
 		_original_modulate = anim.modulate
 		_play_anim("idle")
-	_furnace = get_tree().get_first_node_in_group("furnace")
+	_furnace = _find_nearest_furnace()
 	GameManager.robot_selected.connect(_on_robot_selected)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	GameManager.ore_memory_shared.connect(_on_ore_memory_shared)
@@ -51,7 +51,7 @@ func _ready() -> void:
 
 # 科技升级回调：背包容量/采集速度/移动速度变化时刷新对应属性
 func _on_tech_unlocked(tech_id: String) -> void:
-	if tech_id == "backpack_capacity" or tech_id == "robot_backpack":
+	if tech_id == "backpack_capacity":
 		_update_carry_capacity()
 	elif tech_id == "mine_speed":
 		_update_mine_time()
@@ -61,10 +61,7 @@ func _on_tech_unlocked(tech_id: String) -> void:
 
 # 根据「背包容量」科技等级刷新携带上限：基础 1，每级 +1
 func _update_carry_capacity() -> void:
-	var bonus := 0
-	if GameManager.is_tech_unlocked("robot_backpack"):
-		bonus = GameManager.get_tech_level("backpack_capacity")
-	carry_capacity = 1 + bonus
+	carry_capacity = 1 + GameManager.get_tech_level("backpack_capacity")
 
 
 # 根据「采集速度」科技等级刷新每次挖矿耗时：基础 2，每级 -0.25
@@ -245,10 +242,25 @@ func _tick_moving() -> void:
 	_update_walk_anim(dir)
 
 
+# 找离自己最近的精炼炉（多炉时自动分配，避免全涌向同一个）
+func _find_nearest_furnace() -> Node2D:
+	var furnaces := get_tree().get_nodes_in_group("furnace")
+	var best: Node2D = null
+	var best_dist := INF
+	for f in furnaces:
+		if not is_instance_valid(f):
+			continue
+		var d := global_position.distance_to(f.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = f
+	return best
+
+
 # ==================== 回仓库 ====================
 func _tick_returning() -> void:
 	if _furnace == null or not is_instance_valid(_furnace):
-		_furnace = get_tree().get_first_node_in_group("furnace")
+		_furnace = _find_nearest_furnace()
 		if _furnace == null:
 			_go_idle_or_return()
 			return

@@ -11,6 +11,7 @@ extends Node2D
 const DROPPED_ITEM_SCENE: PackedScene = preload("res://scene/dropped_item.tscn")
 const ROBOT_SCENE: PackedScene = preload("res://scene/robot.tscn")
 const DECORATION_SCENE: PackedScene = preload("res://scene/decoration.tscn")
+const FURNACE_SCENE: PackedScene = preload("res://scene/refining_furnace.tscn")
 
 # ==================== 尺寸 ====================
 const TILE_SIZE := 64
@@ -181,6 +182,21 @@ func _on_tech_unlocked(tech_id: String) -> void:
 				child.refill_to_max()
 	elif tech_id == "add_robot":
 		_spawn_robot()
+	elif tech_id == "add_furnace":
+		_spawn_furnace()
+
+
+# 「扩建精炼炉」：在中心炉子周围环形生成一个新炉子，与现有炉子并行烧制
+const FURNACE_SPAWN_RADIUS := 6   # 新炉子距中心的格数
+func _spawn_furnace() -> void:
+	var center_cell := MAP_SIZE / 2
+	var index := GameManager.get_tech_level("add_furnace")
+	var angle := float(index) * (PI * 0.5)   # 每级偏移 90°，分布在四个方向
+	var offset := Vector2(cos(angle), sin(angle)) * FURNACE_SPAWN_RADIUS * TILE_SIZE
+	var new_furnace := FURNACE_SCENE.instantiate() as RefiningFurnace
+	add_child(new_furnace)
+	new_furnace.set_center_to(_cell_to_world(center_cell) + offset)
+	print("扩建精炼炉，当前炉子数量 %d" % get_tree().get_nodes_in_group("furnace").size())
 
 
 # 依次显示下一个预放置的矿点
