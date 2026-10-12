@@ -57,10 +57,10 @@ func _interact_time() -> int:
 	return BASE_INTERACT_TIME
 
 
-# 最大耐久：基础 100，每级「资源点耐久度」科技 +50
+# 最大耐久：基础 100，每级「资源点耐久度」科技 ×1.5
 func _get_max_durability() -> float:
 	var level := GameManager.get_tech_level("ore_durability")
-	return 100.0 + 50.0 * float(level)
+	return 100.0 * pow(1.5, float(level))
 
 
 # 补满到当前最大耐久（科技解锁后提升上限时调用）
@@ -108,10 +108,10 @@ func _process(delta: float) -> void:
 		_update_visual()
 
 
-# 实际恢复速度：每级「资源再生速度」科技 +100%
+# 实际恢复速度：每级「资源再生速度」科技 ×2.5
 func _get_regen_rate() -> float:
 	var level := GameManager.get_tech_level("regen_speed")
-	return regen_per_second * (1.0 + float(level))
+	return regen_per_second * pow(2.5, float(level))
 
 
 # 在矿点上方绘制耐久条

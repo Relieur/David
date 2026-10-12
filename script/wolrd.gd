@@ -3,7 +3,7 @@ extends Node2D
 @onready var tilemap = $TileMapLayer
 @onready var camera_2d: CameraController = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
-@onready var ware_house: WareHouse = $WareHouse
+@onready var furnace: RefiningFurnace = $Furnace
 @onready var robot_container: Node2D = $RobotContainer
 @onready var decoration_container: Node2D = $DecorationContainer
 
@@ -31,7 +31,8 @@ const DECORATION_TEXTURES: Array[Texture2D] = [
 # ==================== 机器人 ====================
 const INITIAL_ROBOT_COUNT := 0
 const REPRODUCE_INTERVAL := 15.0      # 繁殖能力：每隔多少秒自动生成一个机器人
-const REPRODUCE_MAX := 80             # 繁殖能力：机器人数量上限
+const ROBOT_MAX_BASE := 20            # 机器人数量上限：基础值
+const ROBOT_MAX_PER_LEVEL := 20       # 「机器人数量上限」科技每级增加的数量
 
 # 玩家在场景里手动放置的矿点（按场景树顺序排列，开局全部隐藏）
 var _placed_patches: Array = []
@@ -42,36 +43,46 @@ var _reproduce_timer: float = 0.0      # 繁殖计时
 func _ready() -> void:
 	generate_world()
 	_scatter_decorations()
-	_place_warehouse()
+	_place_furnace()
 	_setup_camera()
+	# 机器人按 y 坐标自动排序（下方遮盖上方），替代手动每帧改 z_index，减少重排开销
+	robot_container.y_sort_enabled = true
 	_spawn_robots()
 	_collect_placed_patches()
 	_reveal_next_patch()
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
-	# [测试] 开局赠送 100 铜矿，方便测试科技树，后期删除
-	GameManager.add_item("copper", 100)
+	# [测试] 开局赠送 100 铜锭，方便测试科技树，后期删除
+	GameManager.add_item("copper_ingot", 100)
 
 
-# ==================== 仓库居中 ====================
-func _place_warehouse() -> void:
+# ==================== 精炼炉居中 ====================
+func _place_furnace() -> void:
 	var center_cell := MAP_SIZE / 2
 	var pos := _cell_to_world(center_cell)
-	ware_house.set_center_to(pos)
+	furnace.set_center_to(pos)
 
 
 # ==================== 生成机器人 ====================
+# 机器人数量上限：基础 20 + 「机器人数量上限」科技每级 +20
+func _get_robot_max() -> int:
+	return ROBOT_MAX_BASE + ROBOT_MAX_PER_LEVEL * GameManager.get_tech_level("robot_count")
+
+
 func _spawn_robots() -> void:
 	for i in INITIAL_ROBOT_COUNT:
 		_spawn_robot()
 
 
-# 生成一个机器人，随机放在仓库周围
-func _spawn_robot() -> void:
+# 生成一个机器人，随机放在仓库周围；达到数量上限时返回 false
+func _spawn_robot() -> bool:
+	if robot_container.get_child_count() >= _get_robot_max():
+		return false
 	var robot := ROBOT_SCENE.instantiate()
 	var angle := randf() * TAU
 	var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
-	robot.global_position = ware_house.global_position + offset
+	robot.global_position = furnace.global_position + offset
 	robot_container.add_child(robot)
+	return true
 
 
 # 每帧驱动繁殖计时
@@ -83,13 +94,13 @@ func _process(delta: float) -> void:
 func _tick_reproduce(delta: float) -> void:
 	if not GameManager.is_tech_unlocked("reproduce"):
 		return
-	if robot_container.get_child_count() >= REPRODUCE_MAX:
+	if robot_container.get_child_count() >= _get_robot_max():
 		return
 	_reproduce_timer += delta
 	if _reproduce_timer >= REPRODUCE_INTERVAL:
 		_reproduce_timer = 0.0
-		_spawn_robot()
-		print("机器人繁殖，当前数量 %d" % robot_container.get_child_count())
+		if _spawn_robot():
+			print("机器人繁殖，当前数量 %d" % robot_container.get_child_count())
 
 
 # 取消选择机器人
@@ -136,7 +147,7 @@ func _scatter_decorations() -> void:
 
 # ==================== 摄像机 ====================
 func _setup_camera() -> void:
-	camera_2d.set_target(ware_house.global_position)
+	camera_2d.set_target(furnace.global_position)
 	camera_2d.zoom = Vector2(2.0, 2.0)
 	camera_2d.map_size_px = Vector2(MAP_SIZE) * TILE_SIZE
 	camera_2d.viewport_size = get_viewport_rect().size

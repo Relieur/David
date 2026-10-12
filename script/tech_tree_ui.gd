@@ -7,7 +7,8 @@ extends Control
 @onready var tech_list: VBoxContainer = $FullPanel/Center/Panel/VBox/Scroll/TechList
 @onready var close_button: Button = $FullPanel/Center/Panel/VBox/CloseButton
 const ITEM_NAMES:={
-	"copper":"矿",
+	"copper":"铜矿",
+	"copper_ingot":"铜锭",
 }
 
 

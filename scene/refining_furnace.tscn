@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://dr1xk34nuvoxr"]
 
-[ext_resource type="Script" uid="uid://bg4xvpg8d7ou" path="res://script/ware_house.gd" id="1_73vke"]
+[ext_resource type="Script" uid="uid://bg4xvpg8d7ou" path="res://script/refining_furnace.gd" id="1_73vke"]
 [ext_resource type="Texture2D" uid="uid://bmqxnm700bvf4" path="res://textures/house.png" id="2_73vke"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
 size = Vector2(128, 128)
 
-[node name="WareHouse" type="Area2D" unique_id=1240451256]
+[node name="Furnace" type="Area2D" unique_id=1240451256]
 z_index = 5
 script = ExtResource("1_73vke")
 

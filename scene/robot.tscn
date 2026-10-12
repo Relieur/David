@@ -858,6 +858,7 @@ script = ExtResource("1_robot")
 z_index = -1
 position = Vector2(0, 12)
 texture = ExtResource("2_shadow")
+modulate = Color(0, 0, 0, 0.45)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1895273263]
 position = Vector2(0, -4)

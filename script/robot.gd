@@ -16,7 +16,7 @@ enum State { IDLE, MOVING, MINING, RETURNING, DEPOSITING }
 var _state: State = State.IDLE
 
 var _target_ore: Node2D = null               # 当前要挖的矿
-var _warehouse: Node2D = null                # 仓库引用
+var _furnace: RefiningFurnace = null         # 精炼炉引用
 
 var _is_selected: bool = false
 var _carry_count: int = 0
@@ -40,20 +40,23 @@ func _ready() -> void:
 	if anim:
 		_original_modulate = anim.modulate
 		_play_anim("idle")
-	_warehouse = get_tree().get_first_node_in_group("warehouse")
+	_furnace = get_tree().get_first_node_in_group("furnace")
 	GameManager.robot_selected.connect(_on_robot_selected)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	GameManager.ore_memory_shared.connect(_on_ore_memory_shared)
 	_update_carry_capacity()
 	_update_mine_time()
+	_update_move_speed()
 
 
-# 科技升级回调：背包容量/采集速度变化时刷新对应属性
+# 科技升级回调：背包容量/采集速度/移动速度变化时刷新对应属性
 func _on_tech_unlocked(tech_id: String) -> void:
 	if tech_id == "backpack_capacity" or tech_id == "robot_backpack":
 		_update_carry_capacity()
 	elif tech_id == "mine_speed":
 		_update_mine_time()
+	elif tech_id == "move_speed":
+		_update_move_speed()
 
 
 # 根据「背包容量」科技等级刷新携带上限：基础 1，每级 +1
@@ -68,6 +71,12 @@ func _update_carry_capacity() -> void:
 func _update_mine_time() -> void:
 	var level: int = GameManager.get_tech_level("mine_speed")
 	mine_time = 2.0 - 0.25 * float(level)
+
+
+# 根据「移动速度」科技等级刷新移动速度：基础 80，每级 +80
+func _update_move_speed() -> void:
+	var level: int = GameManager.get_tech_level("move_speed")
+	move_speed = 80.0 + 80.0 * float(level)
 
 
 # ==================== 点击选中 ====================
@@ -159,6 +168,7 @@ func command_return() -> void:
 
 # ==================== 每帧逻辑 ====================
 func _physics_process(delta: float) -> void:
+	# 机器人深度排序由父节点 robot_container 的 y_sort_enabled 自动处理（按 y 坐标，下方遮盖上方）
 	# 挖矿中不参与交换，避免干扰采矿循环
 	if _state != State.MINING:
 		_try_resource_swap()
@@ -237,13 +247,13 @@ func _tick_moving() -> void:
 
 # ==================== 回仓库 ====================
 func _tick_returning() -> void:
-	if _warehouse == null or not is_instance_valid(_warehouse):
-		_warehouse = get_tree().get_first_node_in_group("warehouse")
-		if _warehouse == null:
+	if _furnace == null or not is_instance_valid(_furnace):
+		_furnace = get_tree().get_first_node_in_group("furnace")
+		if _furnace == null:
 			_go_idle_or_return()
 			return
 
-	var dist := global_position.distance_to(_warehouse.global_position)
+	var dist := global_position.distance_to(_furnace.global_position)
 
 	if dist <= deposit_range:
 		velocity = Vector2.ZERO
@@ -251,7 +261,7 @@ func _tick_returning() -> void:
 		_start_deposit()
 		return
 
-	var dir := (_warehouse.global_position - global_position).normalized()
+	var dir := (_furnace.global_position - global_position).normalized()
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
@@ -330,9 +340,10 @@ func _start_deposit() -> void:
 		return
 	_state = State.DEPOSITING
 
-	# 卸货
-	GameManager.add_item("copper", _carry_count)
-	print("机器人 %s 卸货 %d 个铜矿" % [name, _carry_count])
+	# 把矿物投入精炼炉，进入烧制队列（产出铜锭）
+	if _furnace != null and is_instance_valid(_furnace):
+		_furnace.deposit_ore(_carry_count)
+		print("机器人 %s 投入 %d 个铜矿进精炼炉" % [name, _carry_count])
 	_carry_count = 0
 
 	# 稍等一下再回去
