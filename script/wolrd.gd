@@ -152,6 +152,7 @@ func _setup_camera() -> void:
 	camera_2d.zoom = Vector2(2.0, 2.0)
 	camera_2d.map_size_px = Vector2(MAP_SIZE) * TILE_SIZE
 	camera_2d.viewport_size = get_viewport_rect().size
+	camera_2d.recompute_zoom_min()
 	camera_2d.make_current()
 
 

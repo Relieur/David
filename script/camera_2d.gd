@@ -24,8 +24,18 @@ func _ready() -> void:
 	make_current()
 	zoom=Vector2(zoom_level,zoom_level)
 	viewport_size=get_viewport_rect().size
+	# 注意：map_size_px 此时可能尚未被 wolrd._setup_camera 赋真值，这里只算一次默认值
+	recompute_zoom_min()
 	_target_position=position
 	_home_position=position
+
+
+# 根据 viewport_size 和 map_size_px 重新计算 zoom_min：缩到最小时地图铺满屏幕（较长边对齐视口较长边，无空白）
+# wolrd._setup_camera 设置完 map_size_px 后必须调用一次，否则 zoom_min 用的是默认 2048
+func recompute_zoom_min() -> void:
+	if map_size_px.x > 0 and map_size_px.y > 0:
+		# 用 max：较长边对齐视口 → 地图铺满整屏；较短边地图超出视口可拖动查看
+		zoom_min = max(viewport_size.x / map_size_px.x, viewport_size.y / map_size_px.y)
 	
 
 func _process(delta: float) -> void:
@@ -64,9 +74,24 @@ func _process(delta: float) -> void:
 func _clamp_target() -> void:
 	if not limit_to_map:
 		return
+	# 缩到最小时（zoom==zoom_min）两方向都锁中心：地图铺满整屏且完全无法拖动
+	# 代价：较短边方向地图两端超出视口被裁，要看完整地图需放大一点再拖
+	if is_equal_approx(zoom.x, zoom_min):
+		_target_position = map_size_px * 0.5
+		return
 	var half_view:=viewport_size *0.5 / zoom
-	_target_position.x=clamp(_target_position.x,half_view.x,map_size_px.x-half_view.x)
-	_target_position.y=clamp(_target_position.y,half_view.y,map_size_px.y-half_view.y)
+	var min_x:=half_view.x
+	var max_x:=map_size_px.x-half_view.x
+	var min_y:=half_view.y
+	var max_y:=map_size_px.y-half_view.y
+	if min_x>max_x:
+		_target_position.x=map_size_px.x*0.5
+	else:
+		_target_position.x=clamp(_target_position.x,min_x,max_x)
+	if min_y>max_y:
+		_target_position.y=map_size_px.y*0.5
+	else:
+		_target_position.y=clamp(_target_position.y,min_y,max_y)
 
 func set_target(pos: Vector2) -> void:
 	position = pos
