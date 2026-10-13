@@ -201,11 +201,12 @@ func _spawn_furnace() -> void:
 
 # 依次显示下一个预放置的矿点
 func _reveal_next_patch() -> void:
-	if _reveal_index >= _placed_patches.size():
-		print("没有更多矿点了")
-		return
-	_set_patch_active(_placed_patches[_reveal_index], true)
-	_reveal_index += 1
+	for i in range(3):
+		if _reveal_index >= _placed_patches.size():
+			print("没有更多矿点了（已显示 %d/%d）" % [_reveal_index, _placed_patches.size()])
+			return
+		_set_patch_active(_placed_patches[_reveal_index], true)
+		_reveal_index += 1
 	print("显示矿点 %d/%d" % [_reveal_index, _placed_patches.size()])
 
 

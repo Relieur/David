@@ -70,10 +70,14 @@ func _update_mine_time() -> void:
 	mine_time = 2.0 - 0.25 * float(level)
 
 
-# 根据「移动速度」科技等级刷新移动速度：基础 80，每级 +80
+# 根据「移动速度」科技等级刷新移动速度：基础 80，每级增量 [60, 100, 160]
+const MOVE_SPEED_INCREMENTS: PackedFloat64Array = [60.0, 100.0, 160.0]
 func _update_move_speed() -> void:
 	var level: int = GameManager.get_tech_level("move_speed")
-	move_speed = 80.0 + 80.0 * float(level)
+	var speed: float = 80.0
+	for i in range(level):
+		speed += MOVE_SPEED_INCREMENTS[i]
+	move_speed = speed
 
 
 # ==================== 点击选中 ====================
