@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://c0tkh3bi0lq7n"
-path="res://.godot/imported/敲击.wav-ea2d8829c19ffa6df1c67f66ffbe270e.sample"
+path="res://.godot/imported/grab_sound.wav-fe94e73ec7349fbec0b619cf6682803d.sample"
 
 [deps]
 
-source_file="res://sfx/敲击.wav"
-dest_files=["res://.godot/imported/敲击.wav-ea2d8829c19ffa6df1c67f66ffbe270e.sample"]
+source_file="res://sfx/grab_sound.wav"
+dest_files=["res://.godot/imported/grab_sound.wav-fe94e73ec7349fbec0b619cf6682803d.sample"]
 
 [params]
 
