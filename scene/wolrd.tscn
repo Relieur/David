@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 [ext_resource type="PackedScene" uid="uid://1ft37vt4mhjs" path="res://scene/tech_tree_ui.tscn" id="8_j0btk"]
 [ext_resource type="PackedScene" uid="uid://cfxeo8qifpt2o" path="res://scene/research_lab_ui.tscn" id="9_labui"]
-[ext_resource type="PackedScene" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
+[ext_resource type="PackedScene" uid="uid://bb0dlwu37xq5x" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
 [ext_resource type="PackedScene" uid="uid://44n82bh2oeim" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
 [ext_resource type="PackedScene" uid="uid://drj2ensybjslw" path="res://scene/ore_patch_cross.tscn" id="11_pqfde"]
 [ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
@@ -49,7 +49,7 @@ texture_repeat = 2
 texture = ExtResource("2_whfxa")
 centered = false
 region_enabled = true
-region_rect = Rect2(0, 0, 8192, 8192)
+region_rect = Rect2(0, 0, 8192, 4608)
 
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=521502551]
 tile_set = SubResource("TileSet_40dut")
@@ -81,25 +81,31 @@ script = ExtResource("4_whfxa")
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
 [node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
-position = Vector2(4384, 4448)
+position = Vector2(4416, 2496)
 
 [node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
-position = Vector2(5024, 4576)
+position = Vector2(1024, 512)
 
 [node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
-position = Vector2(4000, 4576)
+position = Vector2(7168, 512)
 
 [node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
-position = Vector2(4064, 4000)
+position = Vector2(1024, 4096)
 
 [node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
-position = Vector2(4192, 3936)
+position = Vector2(7168, 4096)
 
 [node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
-position = Vector2(5144, 4512)
+position = Vector2(4096, 512)
 
 [node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
-position = Vector2(4384, 4576)
+position = Vector2(4096, 4096)
 
 [node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
-position = Vector2(4000, 4704)
+position = Vector2(512, 2304)
+
+[node name="OrePatch9" parent="." unique_id=-1960410518 instance=ExtResource("9_p4qsy")]
+position = Vector2(7680, 2304)
+
+[node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
+position = Vector2(5504, 1280)

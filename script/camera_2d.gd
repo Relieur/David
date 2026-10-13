@@ -30,12 +30,12 @@ func _ready() -> void:
 	_home_position=position
 
 
-# 根据 viewport_size 和 map_size_px 重新计算 zoom_min：缩到最小时地图铺满屏幕（较长边对齐视口较长边，无空白）
+# 根据 viewport_size 和 map_size_px 重新计算 zoom_min：缩到最小时较短边对齐视口，看全整张地图
 # wolrd._setup_camera 设置完 map_size_px 后必须调用一次，否则 zoom_min 用的是默认 2048
 func recompute_zoom_min() -> void:
 	if map_size_px.x > 0 and map_size_px.y > 0:
-		# 用 max：较长边对齐视口 → 地图铺满整屏；较短边地图超出视口可拖动查看
-		zoom_min = max(viewport_size.x / map_size_px.x, viewport_size.y / map_size_px.y)
+		# 用 min：较短边对齐视口 → 地图完整可见；较长边视口比地图宽，两侧留空白（地图居中）
+		zoom_min = min(viewport_size.x / map_size_px.x, viewport_size.y / map_size_px.y)
 	
 
 func _process(delta: float) -> void:

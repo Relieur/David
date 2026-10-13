@@ -2,7 +2,7 @@ extends Control
 
 # 机器人悬浮信息面板：鼠标悬停在机器人上时，跟随机器人显示状态、背包、坐标点记忆
 
-const OFFSET := Vector2(24, -100)   # 相对机器人屏幕位置的偏移（右上）
+const OFFSET := Vector2(24, -130)   # 相对机器人屏幕位置的偏移（右上，整体浮在机器人上方）
 
 var _robot: Robot = null
 var _tween: Tween
@@ -54,8 +54,8 @@ func _process(_delta: float) -> void:
 func _refresh_text() -> void:
 	if _robot == null:
 		return
-	_state_label.text = "状态：" + _robot.get_state_text()
-	_backpack_label.text = "背包：" + _robot.get_backpack_text()
+	_state_label.text = _robot.get_state_text()
+	_backpack_label.text = _robot.get_backpack_text()
 	var mem := _robot.get_memory_text()
 	_coords_label.text = mem
 	_coords_label.visible = not mem.is_empty()

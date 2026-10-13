@@ -25,13 +25,13 @@ func _ready() -> void:
 	_align_to_grid()
 
 
-# 点击精炼炉：若已选中机器人，则手动指挥它返回卸货
+# 点击精炼炉：若已选中机器人，则手动指挥它前往并卸货到本炉
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		get_viewport().set_input_as_handled()
 		var robot = GameManager.selected_robot
 		if robot != null and is_instance_valid(robot) and robot.has_method("command_return"):
-			robot.command_return()
+			robot.command_return(self)
 
 
 # 自动烧制：库存有铜矿时，每「当前烧制耗时」消耗 1 铜矿产出 1 铜锭
@@ -92,10 +92,10 @@ func _get_half_height() -> float:
 	return sprite_2d.texture.get_size().y * absf(sprite_2d.scale.y) * 0.5
 
 
-# 对齐
+# 对齐：3×3 炉体中心对齐到格子中心，保证正好占据 3×3 格
 func _align_to_grid() -> void:
-	position.x = round(position.x / TILE_SIZE) * TILE_SIZE
-	position.y = round(position.y / TILE_SIZE) * TILE_SIZE
+	position.x = floor(position.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE * 0.5
+	position.y = floor(position.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE * 0.5
 	if collision_shape_2d.shape is RectangleShape2D:
 		var rect := collision_shape_2d.shape as RectangleShape2D
 		rect.size.x = round(rect.size.x / TILE_SIZE) * TILE_SIZE

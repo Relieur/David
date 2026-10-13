@@ -15,7 +15,7 @@ const FURNACE_SCENE: PackedScene = preload("res://scene/refining_furnace.tscn")
 
 # ==================== 尺寸 ====================
 const TILE_SIZE := 64
-const MAP_SIZE := Vector2i(128, 128)
+const MAP_SIZE := Vector2i(128, 72)  # 16:9 比例（8192×4608），裁剪后缩到最小时铺满视口无留白
 
 # ==================== 装饰散布 ====================
 const DECORATION_TEXTURES: Array[Texture2D] = [
@@ -50,10 +50,13 @@ func _ready() -> void:
 	robot_container.y_sort_enabled = true
 	_spawn_robots()
 	_collect_placed_patches()
-	_reveal_next_patch()
+	# 初始只显示 1 个矿点，其余通过 unlock_more_ores 科技升级解锁（每次升级 reveal 3 个）
+	if _placed_patches.size() > 0:
+		_set_patch_active(_placed_patches[0], true)
+		_reveal_index = 1
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
-	# [测试] 开局赠送 100 铜锭，方便测试科技树，后期删除
-	GameManager.add_item("copper_ingot", 100)
+	# [测试] 开局赠送 100000 铜锭，方便测试科技树，后期删除
+	GameManager.add_item("copper_ingot", 100000)
 
 
 # ==================== 精炼炉居中 ====================
@@ -78,12 +81,41 @@ func _spawn_robots() -> void:
 func _spawn_robot() -> bool:
 	if robot_container.get_child_count() >= _get_robot_max():
 		return false
-	var robot := ROBOT_SCENE.instantiate()
+	var robot := ROBOT_SCENE.instantiate() as Robot
 	var angle := randf() * TAU
 	var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
 	robot.global_position = furnace.global_position + offset
 	robot_container.add_child(robot)
+	_inherit_patches(robot)
 	return true
+
+
+# 汇总场上所有机器人已记忆的矿区（去重、过滤失效节点）
+func _collect_all_patches() -> Array:
+	var patches: Array = []
+	for child in robot_container.get_children():
+		if not child is Robot:
+			continue
+		for patch in (child as Robot).known_patches:
+			if is_instance_valid(patch) and not patches.has(patch):
+				patches.append(patch)
+	return patches
+
+
+# 新机器人继承已有机器人的矿区记忆（需解锁「信息交流能力」）
+func _inherit_patches(new_robot: Robot) -> void:
+	if not GameManager.is_tech_unlocked("info_share"):
+		return
+	new_robot.inherit_patches(_collect_all_patches())
+
+
+# 解锁「信息交流能力」时：把全体机器人已有的矿区记忆汇总后分发给所有人，
+# 使解锁前生成的机器人也一并获得共享（含它们在解锁前记住的矿区）
+func _sync_all_patches() -> void:
+	var all_patches := _collect_all_patches()
+	for child in robot_container.get_children():
+		if child is Robot:
+			(child as Robot).inherit_patches(all_patches)
 
 
 # 每帧驱动繁殖计时
@@ -185,18 +217,32 @@ func _on_tech_unlocked(tech_id: String) -> void:
 		_spawn_robot()
 	elif tech_id == "add_furnace":
 		_spawn_furnace()
+	elif tech_id == "info_share":
+		_sync_all_patches()
 
 
-# 「扩建精炼炉」：在中心炉子周围环形生成一个新炉子，与现有炉子并行烧制
-const FURNACE_SPAWN_RADIUS := 6   # 新炉子距中心的格数
+# 「扩建精炼炉」：在整张地图上均匀散布一个新炉子，与现有炉子并行烧制
+const FURNACE_EDGE_MARGIN := 6   # 炉子距地图边缘的最小格数
 func _spawn_furnace() -> void:
-	var center_cell := MAP_SIZE / 2
-	var index := GameManager.get_tech_level("add_furnace")
-	var angle := float(index) * (PI * 0.5)   # 每级偏移 90°，分布在四个方向
-	var offset := Vector2(cos(angle), sin(angle)) * FURNACE_SPAWN_RADIUS * TILE_SIZE
+	var existing: Array[Node2D] = []
+	for node in get_tree().get_nodes_in_group("furnace"):
+		if node is Node2D:
+			existing.append(node)
+	# 在可用格子里挑选离所有已有炉子最远的一格，实现“均匀散布”
+	var best_cell := Vector2i.ZERO
+	var best_dist := -1.0
+	for x in range(FURNACE_EDGE_MARGIN, MAP_SIZE.x - FURNACE_EDGE_MARGIN):
+		for y in range(FURNACE_EDGE_MARGIN, MAP_SIZE.y - FURNACE_EDGE_MARGIN):
+			var pos := _cell_to_world(Vector2i(x, y))
+			var min_dist := INF
+			for f in existing:
+				min_dist = minf(min_dist, pos.distance_squared_to(f.global_position))
+			if min_dist > best_dist:
+				best_dist = min_dist
+				best_cell = Vector2i(x, y)
 	var new_furnace := FURNACE_SCENE.instantiate() as RefiningFurnace
 	add_child(new_furnace)
-	new_furnace.set_center_to(_cell_to_world(center_cell) + offset)
+	new_furnace.set_center_to(_cell_to_world(best_cell))
 	print("扩建精炼炉，当前炉子数量 %d" % get_tree().get_nodes_in_group("furnace").size())
 
 

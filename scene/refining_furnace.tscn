@@ -4,14 +4,14 @@
 [ext_resource type="Texture2D" uid="uid://bmqxnm700bvf4" path="res://textures/house.png" id="2_73vke"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
-size = Vector2(128, 128)
+size = Vector2(192, 192)
 
 [node name="Furnace" type="Area2D" unique_id=1240451256]
 z_index = 5
 script = ExtResource("1_73vke")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1416329392]
-scale = Vector2(2, 2)
+scale = Vector2(3, 3)
 texture = ExtResource("2_73vke")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1473297900]

@@ -22,7 +22,7 @@ var _is_selected: bool = false
 var _carry_count: int = 0
 var _command_token: int = 0                  # 每次指派新目标 +1，用于打断旧采矿循环
 var _original_modulate: Color = Color.WHITE
-var known_ores: Array = []                   # 记忆的矿点（Ore 节点引用）
+var known_patches: Array = []                # 记忆的矿区（OrePatch 节点引用，而非单个矿点格子）
 var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫秒），防止来回倒腾
 
 
@@ -131,28 +131,36 @@ func get_backpack_text() -> String:
 	return "%d / %d" % [_carry_count, carry_capacity]
 
 
-# 记忆的坐标点（未解锁坐标点记忆时返回空字符串）
+# 记忆的矿区坐标（未解锁坐标点记忆时返回空字符串）
 func get_memory_text() -> String:
 	if not _has_auto_return():
 		return ""
-	_cleanup_known_ores()
-	if known_ores.is_empty():
-		return "坐标点：暂无记忆"
-	var result := "坐标点："
-	for i in known_ores.size():
-		var ore: Node = known_ores[i]
-		var pos: Vector2 = ore.global_position
+	_cleanup_known_patches()
+	if known_patches.is_empty():
+		return ""
+	var result := ""
+	for i in known_patches.size():
+		var pos: Vector2 = _get_patch_pos(known_patches[i])
 		if i > 0:
 			result += "  "
 		result += "(%d, %d)" % [roundi(pos.x), roundi(pos.y)]
 	return result
 
 
+# 取矿区代表点：优先用矿区中心，退化到节点自身坐标
+func _get_patch_pos(patch: Node) -> Vector2:
+	if patch.has_method("get_center"):
+		return patch.get_center()
+	var n2d := patch as Node2D
+	return n2d.global_position if n2d != null else Vector2.ZERO
+
+
 # ==================== 外部命令：挖某个矿 ====================
 func set_mine_target(ore: Node2D) -> void:
 	if ore == null or not is_instance_valid(ore):
 		return
-	_remember_ore(ore)
+	var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+	_remember_patch(patch)
 	_command_token += 1
 	_target_ore = ore
 	_state = State.MOVING
@@ -160,11 +168,22 @@ func set_mine_target(ore: Node2D) -> void:
 
 
 # ==================== 外部命令：手动返回仓库卸货 ====================
-func command_return() -> void:
+# target_furnace 为空时自动选择离自己最近的精炼炉
+func command_return(target_furnace: RefiningFurnace = null) -> void:
 	_command_token += 1
 	_target_ore = null
-	_state = State.RETURNING
+	_enter_returning(target_furnace)
 	print("机器人 %s 收到手动返回仓库指令" % name)
+
+
+# 进入返回状态：选卸货炉子。
+# 指定了炉子就用指定的；否则解锁「优先排序能力」后每次选最近的，未解锁则沿用上一次的炉子
+func _enter_returning(target_furnace: RefiningFurnace = null) -> void:
+	if target_furnace != null and is_instance_valid(target_furnace):
+		_furnace = target_furnace
+	elif _has_priority_sort() or _furnace == null or not is_instance_valid(_furnace):
+		_furnace = _find_nearest_furnace()
+	_state = State.RETURNING
 
 
 # ==================== 每帧逻辑 ====================
@@ -294,10 +313,19 @@ func _start_mining() -> void:
 		_state = State.IDLE
 		return
 	if not ore.try_claim(self):
-		# 这个格正被别的机器人采，放弃本次目标
-		_target_ore = null
-		_state = State.IDLE
-		return
+		# 该格正被别的机器人采：改去同矿区内另一个空闲矿点，避免都挤在同一格
+		var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+		var alt: Node2D = _find_free_ore_in(patch)
+		if alt != null and alt.try_claim(self):
+			ore = alt
+			_target_ore = alt
+			# 新矿点可能超出采矿范围，保持移动状态继续靠近
+			if global_position.distance_to(alt.global_position) > mine_range:
+				return
+		else:
+			_target_ore = null
+			_state = State.IDLE
+			return
 	_state = State.MINING
 	var token := _command_token
 
@@ -345,7 +373,7 @@ func _start_mining() -> void:
 
 	# 背包装满：解锁「坐标点记忆、自动寻路」后自动回仓库，否则原地待命
 	if _carry_count >= carry_capacity and _has_auto_return():
-		_state = State.RETURNING
+		_enter_returning()
 	else:
 		_state = State.IDLE
 
@@ -370,7 +398,7 @@ func _start_deposit() -> void:
 # ==================== 工具：回到待机 / 回仓库 ====================
 func _go_idle_or_return() -> void:
 	if _carry_count > 0 and _has_auto_return():
-		_state = State.RETURNING
+		_enter_returning()
 	else:
 		_state = State.IDLE
 
@@ -380,22 +408,28 @@ func _has_auto_return() -> bool:
 	return GameManager.is_tech_unlocked("memory_auto")
 
 
-# ==================== 矿点记忆 ====================
-# 记住一个矿点；broadcast=true 时若解锁信息交流则广播给其他机器人（接收共享时传 false 避免循环）
-func _remember_ore(ore: Node, broadcast := true) -> void:
-	if ore == null or not is_instance_valid(ore):
+# ==================== 矿区记忆 ====================
+# 记住一个矿区；broadcast=true 时若解锁信息交流则广播给其他机器人（接收共享时传 false 避免循环）
+func _remember_patch(patch: Node, broadcast := true) -> void:
+	if patch == null or not is_instance_valid(patch):
 		return
-	for o in known_ores:
-		if o == ore:
+	for p in known_patches:
+		if p == patch:
 			return
-	known_ores.append(ore)
+	known_patches.append(patch)
 	if broadcast and _has_info_share():
-		GameManager.ore_memory_shared.emit(ore)
+		GameManager.ore_memory_shared.emit(patch)
 
 
-# 接收其他机器人共享的矿点记忆
-func _on_ore_memory_shared(ore: Node) -> void:
-	_remember_ore(ore, false)
+# 接收其他机器人共享的矿区记忆
+func _on_ore_memory_shared(patch: Node) -> void:
+	_remember_patch(patch, false)
+
+
+# 继承一批矿区记忆（新机器人生成时由管理器调用，不再向外广播以免循环传播）
+func inherit_patches(patches: Array) -> void:
+	for patch in patches:
+		_remember_patch(patch, false)
 
 
 # 是否解锁「信息交流能力」科技
@@ -404,45 +438,64 @@ func _has_info_share() -> bool:
 
 
 # 清理失效引用，保证列表里都是有效节点
-func _cleanup_known_ores() -> void:
+func _cleanup_known_patches() -> void:
 	var valid: Array = []
-	for o in known_ores:
-		if is_instance_valid(o):
-			valid.append(o)
-	known_ores = valid
+	for p in known_patches:
+		if is_instance_valid(p):
+			valid.append(p)
+	known_patches = valid
 
 
-# 选下一个目标矿点：按综合评分选最优（距离近优先，密度感知解锁后额外避开拥堵）
+# 选下一个目标矿点：先按评分从已记忆矿区里选最优矿区，再在该矿区内挑一个空闲矿点
 func _find_next_ore() -> Node:
-	_cleanup_known_ores()
+	_cleanup_known_patches()
+	# 收集「有可用空闲矿点」的矿区（休耕意识下还要求耐久恢复到 80% 以上）
 	var candidates: Array = []
-	for o in known_ores:
-		if o.has_method("is_occupied") and not o.is_occupied():
-			# 休耕意识：耐久未恢复到 80% 以上不选为目标
-			if _has_fallow() and not _is_ore_ready(o):
-				continue
-			candidates.append(o)
+	for p in known_patches:
+		if _has_fallow() and not _is_patch_ready(p):
+			continue
+		var ore := _find_free_ore_in(p)
+		if ore != null:
+			candidates.append({"patch": p, "ore": ore})
 	if candidates.is_empty():
 		return null
-	# 未解锁优先排序且未解锁密度感知时，选第一个未被占据的
+	# 未解锁优先排序且未解锁密度感知时，选第一个可用矿区里的空闲矿点
 	if not _has_priority_sort() and not _has_density():
-		return candidates[0]
-	# 评分越低越优
-	var best: Node = candidates[0]
-	var best_score: float = _ore_score(best)
-	for o in candidates:
-		var s: float = _ore_score(o)
+		return candidates[0]["ore"]
+	# 评分越低越优（按矿区评分，使机器人分散到不同矿区）
+	var best: Dictionary = candidates[0]
+	var best_score: float = _patch_score(best["patch"])
+	for c in candidates:
+		var s: float = _patch_score(c["patch"])
 		if s < best_score:
 			best_score = s
-			best = o
-	return best
+			best = c
+	return best["ore"]
 
 
-# 目标矿点评分：距离越近分越低；密度感知解锁后，附近机器人越多分越高（惩罚拥堵）
-func _ore_score(ore: Node) -> float:
-	var score: float = global_position.distance_to(ore.global_position)
+# 在矿区里挑一个没被其他机器人占据的矿点（兼容单个 Ore 节点）
+func _find_free_ore_in(patch: Node) -> Node2D:
+	if patch == null or not is_instance_valid(patch):
+		return null
+	var ores: Array = []
+	if patch.has_method("get_ores"):
+		ores = patch.get_ores()
+	elif patch is Ore:
+		ores = [patch]
+	for ore in ores:
+		if not is_instance_valid(ore):
+			continue
+		if ore.has_method("is_occupied") and not ore.is_occupied():
+			return ore as Node2D
+	return null
+
+
+# 矿区评分：距离越近分越低；密度感知解锁后，附近机器人越多分越高（惩罚拥堵）
+func _patch_score(patch: Node) -> float:
+	var pos: Vector2 = _get_patch_pos(patch)
+	var score: float = global_position.distance_to(pos)
 	if _has_density():
-		var nearby: int = _count_robots_near(ore.global_position, DENSITY_RADIUS)
+		var nearby: int = _count_robots_near(pos, DENSITY_RADIUS)
 		score += float(nearby) * DENSITY_PENALTY
 	return score
 
@@ -520,9 +573,11 @@ func _has_resource_swap() -> bool:
 	return GameManager.is_tech_unlocked("resource_swap")
 
 
-# 矿点耐久是否 >= 80%（休耕意识下才会选为目标）
-func _is_ore_ready(ore: Node) -> bool:
-	var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+# 矿区耐久是否 >= 80%（休耕意识下才会选为目标）；传入 Ore 时自动取其所属矿区
+func _is_patch_ready(node: Node) -> bool:
+	var patch: Node = node
+	if node.has_method("get_patch"):
+		patch = node.get_patch()
 	if patch == null or not patch.has_method("get_durability_ratio"):
 		return true
 	return patch.get_durability_ratio() >= 0.8
@@ -551,7 +606,7 @@ func _auto_decide() -> void:
 	if not _has_auto_return():
 		return
 	if _carry_count >= carry_capacity:
-		_state = State.RETURNING
+		_enter_returning()
 		return
 	if _carry_count < carry_capacity:
 		var ore := _find_next_ore()

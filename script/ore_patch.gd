@@ -37,6 +37,25 @@ func _collect_ores() -> void:
 			_ores.append(child)
 
 
+# 供机器人选择空闲矿点使用
+func get_ores() -> Array:
+	return _ores
+
+
+# 矿区中心的世界坐标（用于悬浮信息显示、距离评分等）
+func get_center() -> Vector2:
+	if _ores.is_empty():
+		return global_position
+	var min_pos := Vector2.INF
+	var max_pos := -Vector2.INF
+	for ore in _ores:
+		if not is_instance_valid(ore):
+			continue
+		min_pos = min_pos.min(ore.position)
+		max_pos = max_pos.max(ore.position)
+	return global_position + (min_pos + max_pos) * 0.5
+
+
 # 机器人开采一次（产出直接进机器人背包，不产生掉落物）
 func mine_once() -> bool:
 	return _register_interaction()
