@@ -110,8 +110,17 @@ rotation = -6.2831855
 [node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
 position = Vector2(5504, 1280)
 
-[node name="Furnace3" parent="." unique_id=218107102 instance=ExtResource("4_bs68n")]
-position = Vector2(6304, 2528)
+[node name="Furnace2" parent="." unique_id=218107102 instance=ExtResource("4_bs68n")]
+position = Vector2(6880, 3744)
 
-[node name="Furnace4" parent="." unique_id=1407262210 instance=ExtResource("4_bs68n")]
+[node name="Furnace3" parent="." unique_id=1407262210 instance=ExtResource("4_bs68n")]
 position = Vector2(3936, 4000)
+
+[node name="Furnace4" parent="." unique_id=800427134 instance=ExtResource("4_bs68n")]
+position = Vector2(1568, 3936)
+
+[node name="Furnace5" parent="." unique_id=1503280395 instance=ExtResource("4_bs68n")]
+position = Vector2(2208, 1312)
+
+[node name="Furnace6" parent="." unique_id=1735613891 instance=ExtResource("4_bs68n")]
+position = Vector2(6368, 928)
