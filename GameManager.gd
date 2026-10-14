@@ -55,6 +55,14 @@ const TECHS := {
 	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"]},
 	}
 
+# ==================== 机器人数量上限 ====================
+const ROBOT_MAX_BASE := 20           # 基础上限
+const ROBOT_MAX_PER_LEVEL := 20      # 「机器人数量上限」科技每级增加的数量
+
+func get_robot_max() -> int:
+	return ROBOT_MAX_BASE + ROBOT_MAX_PER_LEVEL * get_tech_level("robot_count")
+
+
 # ==================== 资源 ====================
 func add_item(item_type: String, amount: int) -> void:
 	if amount <= 0:
@@ -120,8 +128,7 @@ func can_unlock_tech(tech_id: String) -> bool:
 	var tech: Dictionary = TECHS[tech_id]
 	# add_robot 购买前拦截：机器人数量已达上限时不可购买
 	if tech_id == "add_robot":
-		var robot_max := 20 + 20 * get_tech_level("robot_count")
-		if get_tree().get_nodes_in_group("robots").size() >= robot_max:
+		if get_tree().get_nodes_in_group("robots").size() >= get_robot_max():
 			return false
 	# 前置科技必须至少解锁1级（无需满级）
 	for pre in tech.get("prereq", []):

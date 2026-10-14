@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
 [ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
-[ext_resource type="PackedScene" uid="uid://1ft37vt4mhjs" path="res://scene/tech_tree_ui.tscn" id="8_j0btk"]
 [ext_resource type="PackedScene" uid="uid://cfxeo8qifpt2o" path="res://scene/research_lab_ui.tscn" id="9_labui"]
 [ext_resource type="PackedScene" uid="uid://bb0dlwu37xq5x" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
 [ext_resource type="PackedScene" uid="uid://44n82bh2oeim" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
@@ -71,8 +70,6 @@ script = ExtResource("4_whfxa")
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
 
 [node name="WarehouseUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
-
-[node name="TechTreeUI" parent="UILayer" unique_id=44564573 instance=ExtResource("8_j0btk")]
 
 [node name="ResearchLabUI" parent="UILayer" unique_id=277934063 instance=ExtResource("9_labui")]
 

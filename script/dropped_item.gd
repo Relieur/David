@@ -11,6 +11,7 @@ const FLY_DURATION_MIN := 0.25  # 最短飞行时间（秒），避免近距离�
 const FLY_DURATION_MAX := 1.2   # 最长飞行时间（秒）
 
 var _deposited: bool = false
+var _target_furnace: Node2D = null   # 本次飞行的目标炉子（到达后投给它，而不是重新找）
 
 
 func _ready() -> void:
@@ -51,6 +52,7 @@ func _fly_home() -> void:
 	var furnace := _find_nearest_furnace()
 	if furnace == null:
 		return
+	_target_furnace = furnace
 	input_pickable = false
 	z_index = 100
 	var target: Vector2 = furnace.global_position
@@ -73,7 +75,6 @@ func _deposit() -> void:
 	if _deposited:
 		return
 	_deposited = true
-	var furnace := get_tree().get_first_node_in_group("furnace")
-	if furnace != null and furnace.has_method("deposit_ore"):
-		furnace.deposit_ore(amount)
+	if _target_furnace != null and is_instance_valid(_target_furnace) and _target_furnace.has_method("deposit_ore"):
+		_target_furnace.deposit_ore(amount)
 	queue_free()

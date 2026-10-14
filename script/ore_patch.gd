@@ -21,6 +21,7 @@ const GRID_SIZE := 64                # 每个矿石格子的尺寸
 
 var _interact_count: int = 0         # 距离下次掉落的当前交互计数
 var _ores: Array = []
+var _visual_ratio: float = -1.0      # 上次刷新视觉时的耐久比例（用于节流，避免每帧改所有矿石节点）
 
 
 func _ready() -> void:
@@ -107,20 +108,34 @@ func _register_interaction() -> bool:
 	return true
 
 
-# 耐久越低矿点整体越暗
+# 耐久越低矿点整体越暗（节流：比例变化小于 1% 时跳过，且隐藏矿点不做节点操作）
 func _update_visual() -> void:
+	var t := durability / _get_max_durability()
+	if absf(t - _visual_ratio) < 0.01:
+		return
+	_visual_ratio = t
+	if not visible:
+		return
 	for ore in _ores:
 		if not is_instance_valid(ore):
 			continue
 		var sprite := ore.get_node_or_null("Sprite2D") as Sprite2D
 		if sprite:
-			var t := durability / _get_max_durability()
 			sprite.modulate = Color(0.5 + t * 0.5, 0.5 + t * 0.5, 0.5 + t * 0.5, 1.0)
 	queue_redraw()
 
 
+# 强制刷新一次视觉（矿点刚被 reveal 或耐久突变时调用）
+func refresh_visual() -> void:
+	_visual_ratio = -1.0
+	_update_visual()
+
+
 # 耐久缓慢恢复（基础 regen_per_second，受「资源再生速度」科技加成，最多回到最大耐久）
+# 未 reveal 的矿点（visible=false）无需参与每帧逻辑，直接跳过
 func _process(delta: float) -> void:
+	if not visible:
+		return
 	var max_d := _get_max_durability()
 	if durability < max_d:
 		durability = minf(max_d, durability + _get_regen_rate() * delta)

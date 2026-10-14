@@ -6,7 +6,7 @@ class_name Robot
 @export var mine_range: float = 80.0         # 进入这个距离就开始挖
 @export var mine_time: float = 2          # 每次挖矿耗时
 @export var carry_capacity: int = 1          # 携带上限
-@export var deposit_range: float = 60.0      # 进入仓库这个距离就算卸货
+@export var deposit_range: float = 110.0     # 进入仓库这个距离就算卸货（3×3 炉子半宽 96，留出余量防止走进炉体）
 
 # ==================== 节点引用 ====================
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
@@ -194,7 +194,7 @@ func _physics_process(delta: float) -> void:
 		_try_resource_swap()
 	match _state:
 		State.IDLE:
-			_tick_idle()
+			_tick_idle(delta)
 		State.MOVING:
 			_tick_moving()
 		State.MINING:
@@ -216,9 +216,21 @@ const DENSITY_PENALTY := 120.0            # 每个附近机器人折算的等效
 const SWAP_RANGE := 60.0                  # 资源交换：与此距离内的同伴转交矿物
 
 
+# 每物理帧只查询一次 "robots" 分组供全脚本复用，避免避让/密度/交换各自反复分配数组
+static var _robots_frame: int = -1
+static var _robots_buffer: Array = []
+
+func _get_robots() -> Array:
+	var f := Engine.get_physics_frames()
+	if f != _robots_frame:
+		_robots_frame = f
+		_robots_buffer = get_tree().get_nodes_in_group("robots")
+	return _robots_buffer
+
+
 func _get_separation_velocity() -> Vector2:
 	var sep := Vector2.ZERO
-	var others: Array[Node] = get_tree().get_nodes_in_group("robots")
+	var others: Array = _get_robots()
 	for other in others:
 		if other == self or not is_instance_valid(other):
 			continue
@@ -233,8 +245,15 @@ func _get_separation_velocity() -> Vector2:
 
 
 # ==================== 待机 ====================
-func _tick_idle() -> void:
-	_auto_decide()
+const DECIDE_INTERVAL := 0.25           # 空闲自动决策间隔：避免每帧遍历所有矿区/机器人算评分
+var _decide_timer: float = 0.0
+
+func _tick_idle(delta: float) -> void:
+	# 节流：每隔 DECIDE_INTERVAL 才重新寻路决策一次，减少无谓的每帧计算
+	_decide_timer -= delta
+	if _decide_timer <= 0.0:
+		_decide_timer = DECIDE_INTERVAL
+		_auto_decide()
 	if _state != State.IDLE:
 		return
 	velocity = Vector2.ZERO
@@ -473,7 +492,7 @@ func _find_next_ore() -> Node:
 	return best["ore"]
 
 
-# 在矿区里挑一个没被其他机器人占据的矿点（兼容单个 Ore 节点）
+# 在矿区里挑一个没被其他机器人占据的矿点（选离自己最近的，天然分散，兼容单个 Ore 节点）
 func _find_free_ore_in(patch: Node) -> Node2D:
 	if patch == null or not is_instance_valid(patch):
 		return null
@@ -482,12 +501,17 @@ func _find_free_ore_in(patch: Node) -> Node2D:
 		ores = patch.get_ores()
 	elif patch is Ore:
 		ores = [patch]
+	var best: Node2D = null
+	var best_dist := INF
 	for ore in ores:
 		if not is_instance_valid(ore):
 			continue
 		if ore.has_method("is_occupied") and not ore.is_occupied():
-			return ore as Node2D
-	return null
+			var d: float = global_position.distance_squared_to((ore as Node2D).global_position)
+			if d < best_dist:
+				best_dist = d
+				best = ore as Node2D
+	return best
 
 
 # 矿区评分：距离越近分越低；密度感知解锁后，附近机器人越多分越高（惩罚拥堵）
@@ -503,7 +527,7 @@ func _patch_score(patch: Node) -> float:
 # 统计某位置半径内的其他机器人数（密度感知）
 func _count_robots_near(pos: Vector2, radius: float) -> int:
 	var count := 0
-	for r in get_tree().get_nodes_in_group("robots"):
+	for r in _get_robots():
 		if r == self or not is_instance_valid(r):
 			continue
 		var r2d := r as Node2D
@@ -551,7 +575,7 @@ func _find_swap_partner() -> Robot:
 	var best: Robot = null
 	var best_dist: float = SWAP_RANGE
 	var now: int = Time.get_ticks_msec()
-	for r in get_tree().get_nodes_in_group("robots"):
+	for r in _get_robots():
 		if r == self or not is_instance_valid(r):
 			continue
 		var other := r as Robot

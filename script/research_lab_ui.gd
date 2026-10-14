@@ -327,7 +327,7 @@ func _get_tech_block_reason(tech_id: String) -> String:
 	if GameManager.is_tech_unlocked(tech_id):
 		return "已满级"
 	if tech_id == "add_robot":
-		var robot_max: int = 20 + 20 * GameManager.get_tech_level("robot_count")
+		var robot_max: int = GameManager.get_robot_max()
 		if get_tree().get_nodes_in_group("robots").size() >= robot_max:
 			return "机器人已达上限 %d" % robot_max
 	for pre in tech.get("prereq", []):

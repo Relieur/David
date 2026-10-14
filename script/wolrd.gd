@@ -31,8 +31,6 @@ const DECORATION_TEXTURES: Array[Texture2D] = [
 # ==================== 机器人 ====================
 const INITIAL_ROBOT_COUNT := 0
 const REPRODUCE_INTERVAL := 15.0      # 繁殖能力：每隔多少秒自动生成一个机器人
-const ROBOT_MAX_BASE := 20            # 机器人数量上限：基础值
-const ROBOT_MAX_PER_LEVEL := 20       # 「机器人数量上限」科技每级增加的数量
 
 # 玩家在场景里手动放置的矿点（按场景树顺序排列，开局全部隐藏）
 var _placed_patches: Array = []
@@ -107,10 +105,9 @@ func _name_tail_number(node_name: StringName) -> int:
 	return int(digits) if digits != "" else 0
 
 
-# ==================== 生成机器人 ====================
-# 机器人数量上限：基础 20 + 「机器人数量上限」科技每级 +20
+# 生成机器人
 func _get_robot_max() -> int:
-	return ROBOT_MAX_BASE + ROBOT_MAX_PER_LEVEL * GameManager.get_tech_level("robot_count")
+	return GameManager.get_robot_max()
 
 
 func _spawn_robots() -> void:
@@ -241,10 +238,6 @@ func _collect_placed_patches() -> void:
 				child.mineral_dropped.connect(_on_mineral_dropped)
 
 
-func _cell_to_world(cell: Vector2i) -> Vector2:
-	return Vector2(cell) * TILE_SIZE + Vector2(TILE_SIZE, TILE_SIZE) * 0.5
-
-
 # ==================== 科技解锁回调 ====================
 func _on_tech_unlocked(tech_id: String) -> void:
 	if tech_id == "unlock_more_ores":
@@ -291,6 +284,9 @@ func _set_patch_active(node: Node, active: bool) -> void:
 	node.visible = active
 	if node is Ore:
 		node.input_pickable = active
+	if active and node is OrePatch and node.has_method("refresh_visual"):
+		# 刚 reveal：强制刷新一次外观（隐藏期间跳过了视觉更新）
+		node.refresh_visual()
 	for child in node.get_children():
 		if child is Ore:
 			child.visible = active

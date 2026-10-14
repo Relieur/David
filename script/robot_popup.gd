@@ -3,9 +3,11 @@ extends Control
 # 机器人悬浮信息面板：鼠标悬停在机器人上时，跟随机器人显示状态、背包、坐标点记忆
 
 const OFFSET := Vector2(24, -130)   # 相对机器人屏幕位置的偏移（右上，整体浮在机器人上方）
+const TEXT_REFRESH_INTERVAL := 0.1  # 文本刷新间隔（位置每帧跟随，文本降频刷新）
 
 var _robot: Robot = null
 var _tween: Tween
+var _text_timer: float = 0.0
 
 @onready var _state_label: Label = $Margin/VBox/StateLabel
 @onready var _backpack_label: Label = $Margin/VBox/BackpackLabel
@@ -25,6 +27,7 @@ func show_for(robot: Robot) -> void:
 	if robot == null or not is_instance_valid(robot):
 		return
 	_robot = robot
+	_text_timer = TEXT_REFRESH_INTERVAL
 	_refresh_text()
 	reset_size()
 	visible = true
@@ -41,12 +44,15 @@ func hide_popup(robot: Robot = null) -> void:
 	visible = false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _robot == null or not is_instance_valid(_robot):
 		hide_popup()
 		return
-	_refresh_text()
-	reset_size()
+	# 文本降频刷新（位置每帧跟随即可）
+	_text_timer -= delta
+	if _text_timer <= 0.0:
+		_text_timer = TEXT_REFRESH_INTERVAL
+		_refresh_text()
 	var screen_pos: Vector2 = get_viewport().get_canvas_transform() * _robot.global_position
 	global_position = screen_pos + OFFSET
 
@@ -54,11 +60,20 @@ func _process(_delta: float) -> void:
 func _refresh_text() -> void:
 	if _robot == null:
 		return
-	_state_label.text = _robot.get_state_text()
-	_backpack_label.text = _robot.get_backpack_text()
+	_set_label_text(_state_label, _robot.get_state_text())
+	_set_label_text(_backpack_label, _robot.get_backpack_text())
 	var mem := _robot.get_memory_text()
-	_coords_label.text = mem
-	_coords_label.visible = not mem.is_empty()
+	if _coords_label.visible != (not mem.is_empty()):
+		_coords_label.visible = not mem.is_empty()
+		reset_size()
+	_set_label_text(_coords_label, mem)
+
+
+# 仅当文本真正变化时才赋值并重排，避免每帧触发控件布局重算
+func _set_label_text(label: Label, text: String) -> void:
+	if label.text != text:
+		label.text = text
+		reset_size()
 
 
 # 出现小动画：从中心放大 + 淡入
