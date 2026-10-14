@@ -6,6 +6,263 @@ signal tech_unlocked(tech_id: String)
 signal robot_selected(robot: Node)              # 新增
 signal ore_memory_shared(patch: Node)           # 机器人间共享记忆的矿区（信息交流能力）
 
+
+# ==================== 音效 ====================
+const SFX_GRAB := preload("res://sfx/grab_sound.wav")
+const SFX_DROP := preload("res://sfx/drop.mp3")
+const SFX_AMBIENT := preload("res://sfx/ambient.wav")
+const SFX_STOVE := preload("res://sfx/stove_work_sound.wav")
+
+const SILENT_DB := -80.0                         # 视为静音的音量（db），fade 起止点
+const SFX_FADE_IN := 0.04                        # 一次性音效渐入时长（秒）
+const AMBIENT_FADE := 1.0                        # 环境音 / 炉火声渐入渐出时长（秒）
+
+# ---- 采矿音效（2D 空间化 + 限频 + 密度压音） ----
+const GRAB_BASE_DB := -5.0                       # grab 基础音量（挖矿动作声）
+const DROP_BASE_DB := -1.0                       # drop 基础音量（挖矿掉落声）
+const GRAB_MIN_INTERVAL := 0.12                  # grab 全局最小间隔（秒，方案一：限频节流）
+const SFX2D_MAX_DISTANCE := 1500.0               # 2D 音效最大衰减距离（超出即静音，方案六）
+const SFX2D_ATTENUATION := 0.4                    # 2D 音效衰减指数（越小近处衰减越平缓）
+const DUCK_FREE_COUNT := 3                       # 挖矿机器人 <= 此数量时不压音（方案三）
+const DUCK_PER_ROBOT_DB := 0.8                   # 每多一个挖矿机器人额外压低的分贝
+const DUCK_MAX_DB := 12.0                        # ducking 最多额外压低的分贝
+
+var _sfx_players: Array[AudioStreamPlayer] = []   # 一次性全局音效播放器池（动态扩容，不打断正在播的）
+var _sfx2d_players: Array[AudioStreamPlayer2D] = []  # 2D 采矿音效播放器池（带距离衰减）
+var _ambient_player: AudioStreamPlayer = null     # 环境音（全局循环）
+var _ambient_db: float = -2.0
+var _stove_player: AudioStreamPlayer = null       # 炉火声（任一炉燃烧时循环）
+var _stove_db: float = -12.0
+var _burning_furnaces: int = 0                    # 正在燃烧的炉子计数
+
+var _mining_count: int = 0                        # 正在挖矿的机器人数（ducking 依据）
+var _duck_timer: float = 0.0                      # ducking 低频统计计时
+var _last_grab_time: int = -1_000_000             # 上次 grab 播放时间（毫秒，限频）
+
+var _ambient_volume: float = 1.0                  # 环境音音量（0~1）
+var _sfx_volume: float = 1.0                      # 其他声音音量（0~1，grab/drop/炉火）
+
+
+func _ready() -> void:
+	_setup_audio()
+
+
+func _process(delta: float) -> void:
+	_duck_timer -= delta
+	if _duck_timer <= 0.0:
+		_duck_timer = 0.3
+		_update_mining_count()
+
+
+# 低频统计正在挖矿的机器人数（ducking 用，无需瞬时响应）
+func _update_mining_count() -> void:
+	var n := 0
+	for r in get_tree().get_nodes_in_group("robots"):
+		if r.has_method("is_mining") and r.is_mining():
+			n += 1
+	_mining_count = n
+
+
+# 初始化音频播放器（环境音 + 炉火循环 + 一次性音效池）
+func _setup_audio() -> void:
+	_ambient_player = AudioStreamPlayer.new()
+	_ambient_player.stream = SFX_AMBIENT
+	_ambient_player.volume_db = SILENT_DB
+	add_child(_ambient_player)
+	_ambient_player.play()
+	_fade_to(_ambient_player, _ambient_target_db(), AMBIENT_FADE)
+
+	_stove_player = AudioStreamPlayer.new()
+	_stove_player.stream = SFX_STOVE
+	_stove_player.volume_db = SILENT_DB
+	add_child(_stove_player)
+
+
+# ==================== 音量控制 ====================
+# 把 0~1 的音量换算成 db 偏移：1.0 → 0dB，0.0 → 静音
+func _vol_offset_db(vol: float) -> float:
+	if vol <= 0.0:
+		return SILENT_DB
+	return maxf(linear_to_db(vol), SILENT_DB)
+
+
+# 环境音当前目标音量（基础 db + 音量偏移）
+func _ambient_target_db() -> float:
+	return _ambient_db + _vol_offset_db(_ambient_volume)
+
+
+# 其他声音（炉火）当前目标音量
+func _stove_target_db() -> float:
+	return _stove_db + _vol_offset_db(_sfx_volume)
+
+
+# 设置环境音音量（0~1），立即平滑过渡
+func set_ambient_volume(vol: float) -> void:
+	_ambient_volume = clampf(vol, 0.0, 1.0)
+	if _ambient_player != null and _ambient_player.playing:
+		_fade_to(_ambient_player, _ambient_target_db(), 0.15)
+
+
+# 设置其他声音音量（0~1），炉火声立即平滑过渡，一次性音效在下次播放时生效
+func set_sfx_volume(vol: float) -> void:
+	_sfx_volume = clampf(vol, 0.0, 1.0)
+	if _stove_player != null and _stove_player.playing:
+		_fade_to(_stove_player, _stove_target_db(), 0.15)
+
+
+func get_ambient_volume() -> float:
+	return _ambient_volume
+
+
+func get_sfx_volume() -> float:
+	return _sfx_volume
+
+
+# ==================== 通用渐入渐出 ====================
+# 把某个播放器的音量平滑渐变到 target_db（linear 域插值，听感更自然）
+# player 可以是 AudioStreamPlayer 或 AudioStreamPlayer2D（都有 volume_db / play / stop）
+func _fade_to(player, target_db: float, duration: float) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	# 打断该播放器上一个 fade tween，避免新旧渐变互相打架
+	if player.has_meta("fade_tween"):
+		var old: Tween = player.get_meta("fade_tween")
+		if old != null and old.is_valid():
+			old.kill()
+	var from_db: float = player.volume_db
+	var tween := create_tween()
+	player.set_meta("fade_tween", tween)
+	var from_lin := db_to_linear(from_db)
+	var to_lin := db_to_linear(target_db)
+	tween.tween_method(
+		func(v: float): player.volume_db = linear_to_db(v),
+		from_lin, to_lin, duration
+	)
+
+
+# 渐出到静音后真正停止（用于循环音效的平滑停止）
+func _fade_out_then_stop(player, duration: float) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if player.has_meta("fade_tween"):
+		var old: Tween = player.get_meta("fade_tween")
+		if old != null and old.is_valid():
+			old.kill()
+	var tween := create_tween()
+	player.set_meta("fade_tween", tween)
+	tween.tween_method(
+		func(v: float): player.volume_db = linear_to_db(v),
+		db_to_linear(player.volume_db), db_to_linear(SILENT_DB), duration
+	)
+	tween.tween_callback(func():
+		if player != null and is_instance_valid(player):
+			player.stop()
+	)
+
+
+# ==================== 一次性音效 ====================
+# 播放一次性音效（grab / drop 等）：
+# - 从池里找空闲播放器，全忙则新建一个，绝不打断正在播放的音效
+# - 播放时从静音渐入到目标音量
+func play_sfx(stream: AudioStream) -> void:
+	if stream == null:
+		return
+	var p := _acquire_free_player()
+	p.stream = stream
+	p.volume_db = SILENT_DB
+	p.play()
+	_fade_to(p, _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+
+
+# 找一个空闲的一次性播放器，全忙则新建（动态扩容）
+func _acquire_free_player() -> AudioStreamPlayer:
+	for p in _sfx_players:
+		if p != null and is_instance_valid(p) and not p.playing:
+			return p
+	var p := AudioStreamPlayer.new()
+	add_child(p)
+	_sfx_players.append(p)
+	return p
+
+
+# ==================== 采矿音效（2D 空间化 + 限频 + 密度压音） ====================
+# 播放「挖矿动作」音效：全局限频（方案一）+ 密度压音（方案三）+ 低音量（方案五）+ 距离衰减（方案六）
+func play_grab_at(world_pos: Vector2) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_grab_time < int(GRAB_MIN_INTERVAL * 1000.0):
+		return  # 限频：过密直接丢弃
+	_last_grab_time = now
+	var duck_db := _get_duck_db()
+	play_sfx_at(SFX_GRAB, world_pos, GRAB_BASE_DB - duck_db)
+
+
+# 播放「矿物掉落」音效（重要事件，不限频，仅距离衰减 + 密度压音）
+func play_drop_at(world_pos: Vector2) -> void:
+	var duck_db := _get_duck_db()
+	play_sfx_at(SFX_DROP, world_pos, DROP_BASE_DB - duck_db)
+
+
+# 当前 ducking 压音量：挖矿机器人数超过阈值后，越多压得越狠（封顶）
+func _get_duck_db() -> float:
+	if _mining_count <= DUCK_FREE_COUNT:
+		return 0.0
+	return minf(DUCK_MAX_DB, float(_mining_count - DUCK_FREE_COUNT) * DUCK_PER_ROBOT_DB)
+
+
+# 在指定世界坐标播放一个 2D 音效（带距离衰减，超出 max_distance 自动静音）
+func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> void:
+	if stream == null:
+		return
+	var p := _acquire_free_2d_player()
+	p.stream = stream
+	p.global_position = world_pos
+	p.volume_db = SILENT_DB
+	p.play()
+	# 基础音量 + 其他声音音量偏移（grab/drop 受「其他声音」滑块控制）
+	_fade_to(p, target_db + _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+
+
+# 找一个空闲的 2D 播放器，全忙则新建（动态扩容）
+func _acquire_free_2d_player() -> AudioStreamPlayer2D:
+	for p in _sfx2d_players:
+		if p != null and is_instance_valid(p) and not p.playing:
+			return p
+	var p := AudioStreamPlayer2D.new()
+	p.max_distance = SFX2D_MAX_DISTANCE
+	p.attenuation = SFX2D_ATTENUATION
+	add_child(p)
+	_sfx2d_players.append(p)
+	return p
+
+
+# ==================== 环境音 ====================
+func play_ambient() -> void:
+	if _ambient_player != null and not _ambient_player.playing:
+		_ambient_player.volume_db = SILENT_DB
+		_ambient_player.play()
+		_fade_to(_ambient_player, _ambient_target_db(), AMBIENT_FADE)
+
+
+func stop_ambient() -> void:
+	if _ambient_player != null:
+		_fade_out_then_stop(_ambient_player, AMBIENT_FADE)
+
+
+# ==================== 炉火声 ====================
+# 任一精炼炉在烧就循环播放，最后一炉停烧时停止
+func furnace_burning_started() -> void:
+	_burning_furnaces += 1
+	if _stove_player != null and not _stove_player.playing:
+		_stove_player.volume_db = SILENT_DB
+		_stove_player.play()
+		_fade_to(_stove_player, _stove_target_db(), AMBIENT_FADE)
+
+
+func furnace_burning_stopped() -> void:
+	_burning_furnaces = maxi(0, _burning_furnaces - 1)
+	if _burning_furnaces <= 0 and _stove_player != null:
+		_fade_out_then_stop(_stove_player, AMBIENT_FADE)
+
 # ==================== 数据 ====================
 var inventory: Dictionary = {}
 var tech_levels: Dictionary = {}                # 科技等级，替代 unlocked_techs

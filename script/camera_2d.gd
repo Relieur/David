@@ -28,6 +28,10 @@ func _ready() -> void:
 	recompute_zoom_min()
 	_target_position=position
 	_home_position=position
+	# 给相机挂一个 2D 音频监听器，让采矿等 2D 音效以相机为中心做距离衰减
+	var listener := AudioListener2D.new()
+	listener.name = "AudioListener2D"
+	add_child(listener)
 
 
 # 根据 viewport_size 和 map_size_px 重新计算 zoom_min：缩到最小时较短边对齐视口，看全整张地图

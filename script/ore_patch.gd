@@ -101,10 +101,14 @@ func get_durability_ratio() -> float:
 func _register_interaction() -> bool:
 	_interact_count += 1
 	if _interact_count < _interact_time():
+		# 未掉落：播「交互」音效（挖矿动作，2D 空间化 + 限频 + 密度压音）
+		GameManager.play_grab_at(get_center())
 		return false
 	_interact_count = 0
 	durability = maxf(0.0, durability - DURABILITY_PER_DROP)
 	_update_visual()
+	# 真正挖下矿物：播「掉落」音效（进机器人背包或产生掉落物）
+	GameManager.play_drop_at(get_center())
 	return true
 
 

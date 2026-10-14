@@ -61,6 +61,14 @@ func _close() -> void:
 	full_panel.visible = false
 
 
+# 供 HUD 左下角的 LAB 按钮调用（开/关切换）
+func toggle() -> void:
+	if full_panel.visible:
+		_close()
+	else:
+		_open()
+
+
 func _on_inventory_changed(_inv: Dictionary) -> void:
 	if full_panel.visible:
 		_refresh()

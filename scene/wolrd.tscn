@@ -4,7 +4,6 @@
 [ext_resource type="Texture2D" uid="uid://10fga1y56ksk" path="res://art/Scene_BG.png" id="2_whfxa"]
 [ext_resource type="Texture2D" uid="uid://ofp6rj617v0g" path="res://textures/微信图片_20261008090444_781_372.png" id="3_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/refining_furnace.tscn" id="4_bs68n"]
-[ext_resource type="PackedScene" uid="uid://cr7x6b0exwjpd" path="res://scene/inventory_ui.tscn" id="4_d1c84"]
 [ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 [ext_resource type="PackedScene" uid="uid://cfxeo8qifpt2o" path="res://scene/research_lab_ui.tscn" id="9_labui"]
@@ -13,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://drj2ensybjslw" path="res://scene/ore_patch_cross.tscn" id="11_pqfde"]
 [ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
 [ext_resource type="PackedScene" uid="uid://cfyqb0bl66ld6" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
+[ext_resource type="PackedScene" uid="uid://bbkncruibrt5i" path="res://scene/hud_ui.tscn" id="14_hud"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -57,7 +57,7 @@ tile_set = SubResource("TileSet_40dut")
 z_index = 1
 
 [node name="Furnace" parent="." unique_id=1240451256 instance=ExtResource("4_bs68n")]
-position = Vector2(4128, 2336)
+position = Vector2(4320, 1568)
 
 [node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
 
@@ -69,7 +69,7 @@ script = ExtResource("4_whfxa")
 
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
 
-[node name="WarehouseUI" parent="UILayer" unique_id=1101541301 instance=ExtResource("4_d1c84")]
+[node name="HudUI" parent="UILayer" unique_id=424611351 instance=ExtResource("14_hud")]
 
 [node name="ResearchLabUI" parent="UILayer" unique_id=277934063 instance=ExtResource("9_labui")]
 
@@ -79,48 +79,48 @@ script = ExtResource("4_whfxa")
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
 [node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
-position = Vector2(4448, 2528)
+position = Vector2(4720, 2616)
 
 [node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
-position = Vector2(1024, 512)
+position = Vector2(1312, 1056)
 
 [node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
-position = Vector2(7200, 480)
+position = Vector2(6944, 1184)
 
 [node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
-position = Vector2(1056, 4128)
+position = Vector2(2016, 3616)
 
 [node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
-position = Vector2(7200, 4128)
+position = Vector2(7136, 3808)
 
 [node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
-position = Vector2(4096, 512)
+position = Vector2(3560, 1192)
 
 [node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
-position = Vector2(4448, 4080)
+position = Vector2(5168, 3584)
 rotation = -6.2831855
 
 [node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
-position = Vector2(512, 2304)
+position = Vector2(1264, 2272)
 
 [node name="OrePatch9" parent="." unique_id=-1960410518 instance=ExtResource("9_p4qsy")]
-position = Vector2(6432, 2848)
+position = Vector2(6736, 2720)
 rotation = -6.2831855
 
 [node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
-position = Vector2(5504, 1280)
+position = Vector2(5536, 1248)
 
 [node name="Furnace2" parent="." unique_id=218107102 instance=ExtResource("4_bs68n")]
-position = Vector2(6880, 3744)
+position = Vector2(6240, 3104)
 
 [node name="Furnace3" parent="." unique_id=1407262210 instance=ExtResource("4_bs68n")]
-position = Vector2(3936, 4000)
+position = Vector2(4384, 3168)
 
 [node name="Furnace4" parent="." unique_id=800427134 instance=ExtResource("4_bs68n")]
-position = Vector2(1568, 3936)
+position = Vector2(2144, 3168)
 
 [node name="Furnace5" parent="." unique_id=1503280395 instance=ExtResource("4_bs68n")]
-position = Vector2(2208, 1312)
+position = Vector2(2144, 1568)
 
 [node name="Furnace6" parent="." unique_id=1735613891 instance=ExtResource("4_bs68n")]
-position = Vector2(6368, 928)
+position = Vector2(6240, 1568)

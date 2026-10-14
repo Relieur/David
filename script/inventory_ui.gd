@@ -3,14 +3,11 @@ extends Control
 const ITEM_NAMES:={
 	"copper":"铜矿",
 	"copper_ingot":"铜锭",
-	"iron":"铁",
-	"gold":"金",
+
 	
 }
 # 固定显示在最前面的两种物品（各占一行，纵向并列）：铜锭、炉内铜矿
 const FIXED_ORDER := ["copper_ingot", "copper"]
-# 其余物品的竖排顺序（未列出的类型追加在后面）
-const DISPLAY_ORDER := ["iron", "gold"]
 # 显示名覆盖：「铜矿」这一行给的是所有精炼炉内的待烧总量，和仓库库存区分开
 const NAME_OVERRIDES := {"copper": "炉内铜矿"}
 
@@ -39,10 +36,6 @@ func _refresh(inventory:Dictionary)->void:
 	# 排列顺序：先固定项（铜锭、炉内铜矿），再仓库里有的其它物品
 	var order: Array = []
 	for item_type in FIXED_ORDER:
-		order.append(item_type)
-	for item_type in DISPLAY_ORDER:
-		if order.has(item_type) or not inventory.has(item_type):
-			continue
 		order.append(item_type)
 	for item_type in inventory.keys():
 		if order.has(item_type):

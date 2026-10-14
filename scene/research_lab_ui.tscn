@@ -13,6 +13,7 @@ mouse_filter = 2
 script = ExtResource("1_lab")
 
 [node name="OpenButton" type="Button" parent="." unique_id=1256703958]
+visible = false
 layout_mode = 0
 offset_top = 64.0
 offset_right = 56.0

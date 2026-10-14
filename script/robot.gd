@@ -113,6 +113,11 @@ func _on_mouse_exited() -> void:
 		popup.hide_popup(self)
 
 
+# 当前是否正在挖矿（供音频 ducking 统计使用）
+func is_mining() -> bool:
+	return _state == State.MINING
+
+
 # 当前状态的文本描述
 func get_state_text() -> String:
 	match _state:

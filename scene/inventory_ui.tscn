@@ -1,19 +1,22 @@
-[gd_scene format=3 uid="uid://cr7x6b0exwjpd"]
+[gd_scene load_steps=4 format=3 uid="uid://cr7x6b0exwjpd"]
 
 [ext_resource type="Script" uid="uid://cagrx64hqg2vx" path="res://script/inventory_ui.gd" id="1_ia0un"]
+[ext_resource type="Texture2D" uid="uid://brtu8122h6bbc" path="res://art/UI/UI_RightText_BG.png" id="2_ui"]
+
+[sub_resource type="StyleBoxTexture" id="SBT_warehouse"]
+texture = ExtResource("2_ui")
 
 [node name="InventoryUI" type="Control" unique_id=1101541301]
 layout_mode = 3
-anchors_preset = 6
+anchors_preset = 1
 anchor_left = 1.0
-anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -180.0
-offset_top = -90.0
-offset_bottom = 90.0
+offset_left = -234.0
+offset_top = 292.0
+offset_right = -50.0
+offset_bottom = 478.0
 grow_horizontal = 0
-grow_vertical = 2
+grow_vertical = 1
 script = ExtResource("1_ia0un")
 
 [node name="Panel" type="PanelContainer" parent="." unique_id=39110686]
@@ -23,19 +26,22 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("SBT_warehouse")
 
 [node name="Margin" type="MarginContainer" parent="Panel" unique_id=1010796878]
 layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 8
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_bottom = 10
 
 [node name="VBox" type="VBoxContainer" parent="Panel/Margin" unique_id=982407481]
 layout_mode = 2
 
 [node name="Label" type="Label" parent="Panel/Margin/VBox" unique_id=173491651]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.105882, 0.129412, 0.043137, 1)
+theme_override_font_sizes/font_size = 13
 text = "仓库"
 
 [node name="Items" type="VBoxContainer" parent="Panel/Margin/VBox" unique_id=1061906354]

@@ -1,0 +1,364 @@
+[gd_scene format=3 uid="uid://bbkncruibrt5i"]
+
+[ext_resource type="Script" uid="uid://bysbheon13n4u" path="res://script/hud_ui.gd" id="1_hud"]
+[ext_resource type="Texture2D" uid="uid://0llxgrw08xv" path="res://art/UI/UI_HUD_top.png" id="2_hud"]
+[ext_resource type="Texture2D" uid="uid://dlsel2oj7mljl" path="res://art/UI/UI_HUD_Gear.png" id="3_hud"]
+[ext_resource type="Texture2D" uid="uid://cjp2bu54vfq5a" path="res://art/UI/UI_HUD_Right.png" id="4_hud"]
+[ext_resource type="Texture2D" uid="uid://sfeuclewgoag" path="res://art/UI/UI_Btn_Lab.png" id="5_hud"]
+[ext_resource type="Texture2D" uid="uid://brtu8122h6bbc" path="res://art/UI/UI_RightText_BG.png" id="7_hud"]
+[ext_resource type="Texture2D" uid="uid://dneogqdi8gec0" path="res://art/UI/UI_HUD_ProgressBar_Frame.png" id="8_pb"]
+[ext_resource type="Texture2D" uid="uid://dp4rgbco7itty" path="res://art/UI/UI_HUD_ProgressBar_Fill.png" id="9_pb"]
+
+[sub_resource type="Gradient" id="Grad_fade"]
+colors = PackedColorArray(0, 0, 0, 0.55, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradTex_fade"]
+gradient = SubResource("Grad_fade")
+width = 1920
+height = 450
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_labbtn"]
+atlas = ExtResource("5_hud")
+region = Rect2(0, 470, 344, 393)
+
+[sub_resource type="StyleBoxFlat" id="SBF_settings"]
+content_margin_left = 30.0
+content_margin_top = 22.0
+content_margin_right = 30.0
+content_margin_bottom = 22.0
+bg_color = Color(0.09, 0.11, 0.05, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.705882, 0.87451, 0.266667, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="SBF_setbtn"]
+content_margin_left = 24.0
+content_margin_top = 10.0
+content_margin_right = 24.0
+content_margin_bottom = 10.0
+bg_color = Color(0.117647, 0.14902, 0.058824, 0.882353)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.705882, 0.87451, 0.266667, 1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[sub_resource type="StyleBoxFlat" id="SBF_hideui"]
+bg_color = Color(0.682353, 0.819608, 0.309804, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="HudUI" type="Control" unique_id=290823036]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="TopFade" type="TextureRect" parent="." unique_id=141309166]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 400.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = SubResource("GradTex_fade")
+expand_mode = 1
+
+[node name="TopBar" type="TextureRect" parent="." unique_id=852408701]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 96.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = ExtResource("2_hud")
+expand_mode = 1
+
+[node name="Resources" type="Label" parent="TopBar" unique_id=1907827574]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 840.0
+offset_top = 40.0
+offset_right = -784.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RightPanel" type="TextureRect" parent="." unique_id=219158001]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -378.0
+offset_top = 150.0
+offset_right = -35.0
+offset_bottom = 478.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("4_hud")
+expand_mode = 1
+
+[node name="LabGoalPanel" type="TextureRect" parent="." unique_id=1047744521]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -378.0
+offset_top = 241.0
+offset_right = -71.0
+offset_bottom = 501.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("7_hud")
+expand_mode = 1
+
+[node name="Title" type="Label" parent="LabGoalPanel" unique_id=114835629]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 14.0
+offset_top = -5.0
+offset_right = -20.0
+offset_bottom = 49.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.105882, 0.129412, 0.043137, 1)
+theme_override_font_sizes/font_size = 23
+text = "研究所目标"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Body" type="Label" parent="LabGoalPanel" unique_id=1008837031]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 22.0
+offset_top = 67.0
+offset_right = -21.0
+offset_bottom = -23.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
+theme_override_constants/line_spacing = 10
+theme_override_font_sizes/font_size = 22
+text = "当前阶段：阶段0"
+
+[node name="StageProgress" type="Control" parent="." unique_id=742538349]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -390.0
+offset_top = 763.0
+offset_right = -83.0
+offset_bottom = 787.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="Fill" type="TextureProgressBar" parent="StageProgress" unique_id=1456821132]
+layout_mode = 0
+offset_left = 17.0
+offset_top = -563.0
+offset_right = 314.0
+offset_bottom = -547.0
+mouse_filter = 2
+max_value = 1.0
+step = 0.001
+texture_progress = ExtResource("9_pb")
+
+[node name="Frame" type="TextureRect" parent="StageProgress" unique_id=670832596]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -567.0
+offset_right = 12.0
+offset_bottom = -567.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("8_pb")
+expand_mode = 1
+
+[node name="LabButton" type="TextureButton" parent="." unique_id=60274726]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -423.0
+offset_right = 353.0
+offset_bottom = -30.0
+grow_vertical = 0
+texture_normal = SubResource("AtlasTexture_labbtn")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="GearButton" type="TextureButton" parent="." unique_id=1011445576]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -88.0
+offset_top = 27.0
+offset_right = -40.0
+offset_bottom = 75.0
+grow_horizontal = 0
+texture_normal = ExtResource("3_hud")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="HideUIButton" type="Button" parent="." unique_id=905331482]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -80.0
+offset_right = -40.0
+offset_bottom = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.05, 0.07, 0.02, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("SBF_hideui")
+theme_override_styles/hover = SubResource("SBF_hideui")
+theme_override_styles/pressed = SubResource("SBF_hideui")
+theme_override_styles/focus = SubResource("SBF_hideui")
+text = "隐藏UI"
+
+[node name="SettingsRoot" type="Control" parent="." unique_id=1940249801]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="SettingsRoot" unique_id=916185569]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.447059)
+
+[node name="Panel" type="PanelContainer" parent="SettingsRoot" unique_id=344127947]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -367.0
+offset_top = 133.0
+offset_right = 367.0
+offset_bottom = 480.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("SBF_settings")
+
+[node name="VBox" type="VBoxContainer" parent="SettingsRoot/Panel" unique_id=1546006553]
+layout_mode = 2
+theme_override_constants/separation = 23
+
+[node name="Title" type="Label" parent="SettingsRoot/Panel/VBox" unique_id=2004247887]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.96, 0.85, 1)
+theme_override_font_sizes/font_size = 30
+text = "设置"
+horizontal_alignment = 1
+
+[node name="AmbientVol" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1355547713]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/AmbientVol" unique_id=1307622198]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
+theme_override_font_sizes/font_size = 22
+text = "环境音"
+
+[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/AmbientVol" unique_id=1987125940]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="SfxVol" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=2713390235]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/SfxVol" unique_id=2995588752]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
+theme_override_font_sizes/font_size = 22
+text = "其他声音"
+
+[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/SfxVol" unique_id=2713390236]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Buttons" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=850112030]
+layout_mode = 2
+theme_override_constants/separation = 23
+
+[node name="ResumeButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=749617254]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
+theme_override_font_sizes/font_size = 25
+theme_override_styles/normal = SubResource("SBF_setbtn")
+theme_override_styles/pressed = SubResource("SBF_setbtn")
+theme_override_styles/hover = SubResource("SBF_setbtn")
+text = "继续游戏"
+
+[node name="MenuButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=1279320049]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
+theme_override_font_sizes/font_size = 25
+theme_override_styles/normal = SubResource("SBF_setbtn")
+theme_override_styles/pressed = SubResource("SBF_setbtn")
+theme_override_styles/hover = SubResource("SBF_setbtn")
+text = "回到主菜单"
+
+[node name="QuitButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=1021645916]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
+theme_override_font_sizes/font_size = 25
+theme_override_styles/normal = SubResource("SBF_setbtn")
+theme_override_styles/pressed = SubResource("SBF_setbtn")
+theme_override_styles/hover = SubResource("SBF_setbtn")
+text = "退出游戏"

@@ -23,6 +23,7 @@ var _is_active: bool = true          # 是否已启用（预放置的炉子开�
 var _floaters: Array = []            # 烧制完成时「+N」浮动效果列表
 var _stock_label: Label = null       # 炉内矿量显示（UI）
 var _label_stock: int = -1           # 上次刷新标签时的矿量（用于避免重复刷新）
+var _burning: bool = false           # 本炉是否正在燃烧（用于炉火音效的启停判断）
 
 
 func _ready() -> void:
@@ -80,6 +81,8 @@ func set_active(active: bool) -> void:
 		if is_in_group("furnace"):
 			remove_from_group("furnace")
 		_smelt_timer = 0.0
+		# 停用炉子立即退出炉火音效计数（set_process(false) 后 _process 不再运行）
+		_set_burning(false)
 
 
 # 点击精炼炉：若已选中机器人，则手动指挥它前往并卸货到本炉
@@ -97,7 +100,11 @@ func _process(delta: float) -> void:
 	if not _is_active:
 		if dirty:
 			queue_redraw()
+		# 停用的炉子若仍在燃烧态，退出炉火音效计数
+		_set_burning(false)
 		return
+	var burning := _ore_stock > 0
+	_set_burning(burning)
 	if _ore_stock > 0:
 		var interval := _get_smelt_interval()
 		_smelt_timer += delta
@@ -118,6 +125,17 @@ func _process(delta: float) -> void:
 		dirty = true
 	if dirty:
 		queue_redraw()
+
+
+# 同步炉火音效：本炉燃烧状态发生变化时通知 GameManager 增/减燃烧炉计数
+func _set_burning(burning: bool) -> void:
+	if _burning == burning:
+		return
+	_burning = burning
+	if burning:
+		GameManager.furnace_burning_started()
+	else:
+		GameManager.furnace_burning_stopped()
 
 
 # ==================== 「+N」浮动效果 ====================
