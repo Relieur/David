@@ -147,7 +147,7 @@ func _make_tech_row(tech_id:String)->Control:
 	#按钮
 	var btn:=Button.new()
 	btn.custom_minimum_size=Vector2(120,44)
-	var max_level:int = tech.get("max_level", 1)
+	var max_level:int = GameManager.get_tech_max_level(tech_id)
 	var level:int = GameManager.get_tech_level(tech_id)
 	if max_level > 1:
 		# 可重复升级：满级显示已满级，否则显示「升级 Lv.X」

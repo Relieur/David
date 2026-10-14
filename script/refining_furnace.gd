@@ -15,6 +15,7 @@ const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 @onready var sprite_2d: Sprite2D = $Sprite2D
 
 var _smelt_timer: float = 0.0        # 当前铜锭的烧制计时
+var _is_active: bool = true          # 是否已启用（预放置的炉子开局只有名字最小的那个启用）
 
 
 func _ready() -> void:
@@ -23,6 +24,26 @@ func _ready() -> void:
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 	_align_to_grid()
+
+
+func is_active() -> bool:
+	return _is_active
+
+
+# 启用 / 停用：停用的炉子隐藏、停止烧制、并退出 "furnace" 分组，
+# 这样机器人寻路和掉落物「找最近的炉子」都不会选中它
+func set_active(active: bool) -> void:
+	_is_active = active
+	visible = active
+	input_pickable = active
+	set_process(active)
+	if active:
+		if not is_in_group("furnace"):
+			add_to_group("furnace")
+	else:
+		if is_in_group("furnace"):
+			remove_from_group("furnace")
+		_smelt_timer = 0.0
 
 
 # 点击精炼炉：若已选中机器人，则手动指挥它前往并卸货到本炉
@@ -36,6 +57,8 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 
 # 自动烧制：库存有铜矿时，每「当前烧制耗时」消耗 1 铜矿产出 1 铜锭
 func _process(delta: float) -> void:
+	if not _is_active:
+		return
 	if GameManager.get_count(ORE_TYPE) <= 0:
 		if _smelt_timer != 0.0:
 			_smelt_timer = 0.0

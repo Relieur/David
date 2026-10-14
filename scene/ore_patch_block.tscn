@@ -6,8 +6,6 @@
 [node name="OrePatch" type="Node2D" unique_id=628908834]
 script = ExtResource("1_script")
 
-[node name="Ore1" parent="." unique_id=1619159638 instance=ExtResource("1_ore")]
-
 [node name="Ore2" parent="." unique_id=366273541 instance=ExtResource("1_ore")]
 position = Vector2(64, 0)
 
@@ -31,3 +29,27 @@ position = Vector2(64, 128)
 
 [node name="Ore8" parent="." unique_id=1284773020 instance=ExtResource("1_ore")]
 position = Vector2(128, 128)
+
+[node name="Ore10" parent="." unique_id=944886951 instance=ExtResource("1_ore")]
+position = Vector2(192, 64)
+
+[node name="Ore11" parent="." unique_id=2138839117 instance=ExtResource("1_ore")]
+position = Vector2(192, 128)
+
+[node name="Ore12" parent="." unique_id=1548246962 instance=ExtResource("1_ore")]
+position = Vector2(192, 192)
+
+[node name="Ore14" parent="." unique_id=318801524 instance=ExtResource("1_ore")]
+position = Vector2(256, 192)
+
+[node name="Ore15" parent="." unique_id=1891619232 instance=ExtResource("1_ore")]
+position = Vector2(256, 128)
+
+[node name="Ore16" parent="." unique_id=1215377563 instance=ExtResource("1_ore")]
+position = Vector2(192, 0)
+
+[node name="Ore19" parent="." unique_id=1736216765 instance=ExtResource("1_ore")]
+position = Vector2(256, 64)
+
+[node name="Ore21" parent="." unique_id=45236354 instance=ExtResource("1_ore")]
+position = Vector2(64, 192)

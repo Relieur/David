@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://44n82bh2oeim" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
 [ext_resource type="PackedScene" uid="uid://drj2ensybjslw" path="res://scene/ore_patch_cross.tscn" id="11_pqfde"]
 [ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
-[ext_resource type="PackedScene" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
+[ext_resource type="PackedScene" uid="uid://cfyqb0bl66ld6" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -58,6 +58,7 @@ tile_set = SubResource("TileSet_40dut")
 z_index = 1
 
 [node name="Furnace" parent="." unique_id=1240451256 instance=ExtResource("4_bs68n")]
+position = Vector2(4128, 2336)
 
 [node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
 
@@ -81,31 +82,39 @@ script = ExtResource("4_whfxa")
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
 [node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
-position = Vector2(4416, 2496)
+position = Vector2(4448, 2528)
 
 [node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
 position = Vector2(1024, 512)
 
 [node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
-position = Vector2(7168, 512)
+position = Vector2(7200, 480)
 
 [node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
-position = Vector2(1024, 4096)
+position = Vector2(1056, 4128)
 
 [node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
-position = Vector2(7168, 4096)
+position = Vector2(7200, 4128)
 
 [node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
 position = Vector2(4096, 512)
 
 [node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
-position = Vector2(4096, 4096)
+position = Vector2(4448, 4080)
+rotation = -6.2831855
 
 [node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
 position = Vector2(512, 2304)
 
 [node name="OrePatch9" parent="." unique_id=-1960410518 instance=ExtResource("9_p4qsy")]
-position = Vector2(7680, 2304)
+position = Vector2(6432, 2848)
+rotation = -6.2831855
 
 [node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
 position = Vector2(5504, 1280)
+
+[node name="Furnace3" parent="." unique_id=218107102 instance=ExtResource("4_bs68n")]
+position = Vector2(6304, 2528)
+
+[node name="Furnace4" parent="." unique_id=1407262210 instance=ExtResource("4_bs68n")]
+position = Vector2(3936, 4000)

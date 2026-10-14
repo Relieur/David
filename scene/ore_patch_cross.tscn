@@ -19,3 +19,27 @@ position = Vector2(0, -64)
 
 [node name="Ore5" parent="." unique_id=1720705891 instance=ExtResource("1_ore")]
 position = Vector2(0, 64)
+
+[node name="Ore" parent="." unique_id=71541184 instance=ExtResource("1_ore")]
+position = Vector2(128, 0)
+
+[node name="Ore6" parent="." unique_id=1500872209 instance=ExtResource("1_ore")]
+position = Vector2(0, 128)
+
+[node name="Ore7" parent="." unique_id=90466745 instance=ExtResource("1_ore")]
+position = Vector2(0, 192)
+
+[node name="Ore8" parent="." unique_id=441852865 instance=ExtResource("1_ore")]
+position = Vector2(64, 64)
+
+[node name="Ore9" parent="." unique_id=669098234 instance=ExtResource("1_ore")]
+position = Vector2(-128, 0)
+
+[node name="Ore10" parent="." unique_id=3105323 instance=ExtResource("1_ore")]
+position = Vector2(-64, -64)
+
+[node name="Ore11" parent="." unique_id=428984491 instance=ExtResource("1_ore")]
+position = Vector2(192, 0)
+
+[node name="Ore12" parent="." unique_id=680452018 instance=ExtResource("1_ore")]
+position = Vector2(64, -64)

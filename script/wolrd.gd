@@ -11,7 +11,6 @@ extends Node2D
 const DROPPED_ITEM_SCENE: PackedScene = preload("res://scene/dropped_item.tscn")
 const ROBOT_SCENE: PackedScene = preload("res://scene/robot.tscn")
 const DECORATION_SCENE: PackedScene = preload("res://scene/decoration.tscn")
-const FURNACE_SCENE: PackedScene = preload("res://scene/refining_furnace.tscn")
 
 # ==================== 尺寸 ====================
 const TILE_SIZE := 64
@@ -44,7 +43,9 @@ var _reproduce_timer: float = 0.0      # 繁殖计时
 func _ready() -> void:
 	generate_world()
 	_scatter_decorations()
-	_place_furnace()
+	# 精炼炉：位置完全按场景里手动摆放的位置来（不再自动居中 / 自动散布），
+	# 开局只启用名字顺序里的第一个，其余靠「扩建精炼炉」科技逐级出现
+	_collect_placed_furnaces()
 	_setup_camera()
 	# 机器人按 y 坐标自动排序（下方遮盖上方），替代手动每帧改 z_index，减少重排开销
 	robot_container.y_sort_enabled = true
@@ -59,11 +60,51 @@ func _ready() -> void:
 	GameManager.add_item("copper_ingot", 100000)
 
 
-# ==================== 精炼炉居中 ====================
-func _place_furnace() -> void:
-	var center_cell := MAP_SIZE / 2
-	var pos := _cell_to_world(center_cell)
-	furnace.set_center_to(pos)
+# ==================== 精炼炉（沿用场景里摆放的位置） ====================
+# 玩家在场景里手动摆放的炉子；开局只启用名字顺序里的第一个，
+# 之后每升一级「扩建精炼炉」就按名字顺序启用下一个。
+var _placed_furnaces: Array[RefiningFurnace] = []
+var _reveal_furnace_index: int = 0
+
+
+func _collect_placed_furnaces() -> void:
+	_placed_furnaces.clear()
+	_reveal_furnace_index = 0
+	for node in get_tree().get_nodes_in_group("furnace"):
+		if node is RefiningFurnace:
+			_placed_furnaces.append(node)
+	# 出现顺序 = 名字顺序：Furnace → Furnace2 → Furnace3 → …
+	_placed_furnaces.sort_custom(_furnace_order_cmp)
+	for f in _placed_furnaces:
+		f.set_active(false)
+	if _placed_furnaces.is_empty():
+		push_warning("场景里没有预放置任何精炼炉")
+		return
+	furnace = _placed_furnaces[0]
+	furnace.set_active(true)
+	_reveal_furnace_index = 1
+	# 「扩建精炼炉」等级上限自动匹配炉子数量：N 个炉子 = 开局 1 个 + 升级 N-1 级
+	GameManager.set_tech_max_level("add_furnace", maxi(1, _placed_furnaces.size() - 1))
+
+
+# 排序比较：取名字结尾的数字作为序号（无数字视作 0），序号相同再按名字比
+func _furnace_order_cmp(a: RefiningFurnace, b: RefiningFurnace) -> bool:
+	var na := _name_tail_number(a.name)
+	var nb := _name_tail_number(b.name)
+	if na != nb:
+		return na < nb
+	return String(a.name) < String(b.name)
+
+
+func _name_tail_number(node_name: StringName) -> int:
+	var s := String(node_name)
+	var digits := ""
+	for i in range(s.length() - 1, -1, -1):
+		var code := s.unicode_at(i)
+		if code < 48 or code > 57:
+			break
+		digits = s[i] + digits
+	return int(digits) if digits != "" else 0
 
 
 # ==================== 生成机器人 ====================
@@ -216,34 +257,22 @@ func _on_tech_unlocked(tech_id: String) -> void:
 	elif tech_id == "add_robot":
 		_spawn_robot()
 	elif tech_id == "add_furnace":
-		_spawn_furnace()
+		_reveal_next_furnace()
 	elif tech_id == "info_share":
 		_sync_all_patches()
 
 
-# 「扩建精炼炉」：在整张地图上均匀散布一个新炉子，与现有炉子并行烧制
-const FURNACE_EDGE_MARGIN := 6   # 炉子距地图边缘的最小格数
-func _spawn_furnace() -> void:
-	var existing: Array[Node2D] = []
-	for node in get_tree().get_nodes_in_group("furnace"):
-		if node is Node2D:
-			existing.append(node)
-	# 在可用格子里挑选离所有已有炉子最远的一格，实现“均匀散布”
-	var best_cell := Vector2i.ZERO
-	var best_dist := -1.0
-	for x in range(FURNACE_EDGE_MARGIN, MAP_SIZE.x - FURNACE_EDGE_MARGIN):
-		for y in range(FURNACE_EDGE_MARGIN, MAP_SIZE.y - FURNACE_EDGE_MARGIN):
-			var pos := _cell_to_world(Vector2i(x, y))
-			var min_dist := INF
-			for f in existing:
-				min_dist = minf(min_dist, pos.distance_squared_to(f.global_position))
-			if min_dist > best_dist:
-				best_dist = min_dist
-				best_cell = Vector2i(x, y)
-	var new_furnace := FURNACE_SCENE.instantiate() as RefiningFurnace
-	add_child(new_furnace)
-	new_furnace.set_center_to(_cell_to_world(best_cell))
-	print("扩建精炼炉，当前炉子数量 %d" % get_tree().get_nodes_in_group("furnace").size())
+# 「扩建精炼炉」：按名字顺序启用下一个预放置的炉子（位置就是场景里摆放的位置）
+func _reveal_next_furnace() -> void:
+	if _reveal_furnace_index >= _placed_furnaces.size():
+		print("没有更多预放置的精炼炉了（已启用 %d/%d）" % [_reveal_furnace_index, _placed_furnaces.size()])
+		return
+	var next_furnace: RefiningFurnace = _placed_furnaces[_reveal_furnace_index]
+	_reveal_furnace_index += 1
+	if not is_instance_valid(next_furnace):
+		return
+	next_furnace.set_active(true)
+	print("扩建精炼炉：启用 %s，已启用 %d/%d" % [next_furnace.name, _reveal_furnace_index, _placed_furnaces.size()])
 
 
 # 依次显示下一个预放置的矿点

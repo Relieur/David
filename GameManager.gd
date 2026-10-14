@@ -9,6 +9,7 @@ signal ore_memory_shared(patch: Node)           # 机器人间共享记忆的矿
 # ==================== 数据 ====================
 var inventory: Dictionary = {}
 var tech_levels: Dictionary = {}                # 科技等级，替代 unlocked_techs
+var _tech_max_level_overrides: Dictionary = {}  # 运行时改写的科技等级上限（如精炼炉数量取决于场景里预放置的炉子数）
 var selected_robot: Node = null                 # 当前选中的机器人
 var lab_stage: int = 0                          # 研究所阶段（0~5）
 
@@ -80,7 +81,13 @@ func get_tech_level(tech_id: String) -> int:
 	return tech_levels.get(tech_id, 0)
 
 func get_tech_max_level(tech_id: String) -> int:
+	if _tech_max_level_overrides.has(tech_id):
+		return _tech_max_level_overrides[tech_id]
 	return TECHS.get(tech_id, {}).get("max_level", 1)
+
+# 运行时改写某科技的等级上限（用于让「扩建精炼炉」的级数自动匹配场景里预放置的炉子数量）
+func set_tech_max_level(tech_id: String, max_level: int) -> void:
+	_tech_max_level_overrides[tech_id] = maxi(0, max_level)
 
 # 获取某科技下一次升级所需的消耗（支持动态消耗，如「添加机器人」「背包容量」随等级递增）
 #   - costs 数组：固定阶梯消耗，按等级索引取值
