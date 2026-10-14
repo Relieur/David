@@ -15,6 +15,7 @@ const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 @onready var sprite_2d: Sprite2D = $Sprite2D
 
 var _smelt_timer: float = 0.0        # 当前铜锭的烧制计时
+var _ore_stock: int = 0              # 本炉独立存储的待烧铜矿数量（不与其它炉共享）
 
 
 func _ready() -> void:
@@ -34,18 +35,18 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 			robot.command_return(self)
 
 
-# 自动烧制：库存有铜矿时，每「当前烧制耗时」消耗 1 铜矿产出 1 铜锭
+# 自动烧制：本炉库存有铜矿时，每「当前烧制耗时」消耗 1 铜矿产出 1 铜锭（铜锭全局共享）
 func _process(delta: float) -> void:
-	if GameManager.get_count(ORE_TYPE) <= 0:
+	if _ore_stock <= 0:
 		if _smelt_timer != 0.0:
 			_smelt_timer = 0.0
 			queue_redraw()
 		return
 	var interval := _get_smelt_interval()
 	_smelt_timer += delta
-	while _smelt_timer >= interval and GameManager.get_count(ORE_TYPE) > 0:
+	while _smelt_timer >= interval and _ore_stock > 0:
 		_smelt_timer -= interval
-		GameManager.remove_item(ORE_TYPE, 1)
+		_ore_stock -= 1
 		# 「无中生有」+「暴击率」：有概率一次烧出两个铜锭
 		var gained := ORES_PER_INGOT
 		if randf() < _get_double_chance():
@@ -68,14 +69,20 @@ func _get_smelt_interval() -> float:
 	return SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level)
 
 
-# 投入铜矿（机器人卸货 / 掉落物飞入）
+# 投入铜矿：存进本炉独立库存（机器人卸货 / 掉落物飞入）
 func deposit_ore(amount: int) -> void:
-	GameManager.add_item(ORE_TYPE, amount)
+	_ore_stock += amount
+	queue_redraw()
 
 
-# 烧制进度条（仅在库存有铜矿时显示）
+# 本炉当前待烧铜矿数量（供外部查询，如显示/调试）
+func get_ore_stock() -> int:
+	return _ore_stock
+
+
+# 烧制进度条（仅在本炉库存有铜矿时显示）
 func _draw() -> void:
-	if GameManager.get_count(ORE_TYPE) <= 0:
+	if _ore_stock <= 0:
 		return
 	var ratio := clampf(_smelt_timer / _get_smelt_interval(), 0.0, 1.0)
 	var bar_w := 96.0
