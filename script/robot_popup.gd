@@ -1,6 +1,6 @@
 extends Control
 
-# 机器人悬浮信息面板：鼠标悬停在机器人上时，跟随机器人显示状态、背包、坐标点记忆
+# 机器人悬浮信息面板：鼠标悬停在机器人上时，跟随机器人显示状态、背包
 
 const OFFSET := Vector2(24, -130)   # 相对机器人屏幕位置的偏移（右上，整体浮在机器人上方）
 const TEXT_REFRESH_INTERVAL := 0.1  # 文本刷新间隔（位置每帧跟随，文本降频刷新）
@@ -11,7 +11,6 @@ var _text_timer: float = 0.0
 
 @onready var _state_label: Label = $Margin/VBox/StateLabel
 @onready var _backpack_label: Label = $Margin/VBox/BackpackLabel
-@onready var _coords_label: Label = $Margin/VBox/CoordsLabel
 
 
 
@@ -62,11 +61,6 @@ func _refresh_text() -> void:
 		return
 	_set_label_text(_state_label, _robot.get_state_text())
 	_set_label_text(_backpack_label, _robot.get_backpack_text())
-	var mem := _robot.get_memory_text()
-	if _coords_label.visible != (not mem.is_empty()):
-		_coords_label.visible = not mem.is_empty()
-		reset_size()
-	_set_label_text(_coords_label, mem)
 
 
 # 仅当文本真正变化时才赋值并重排，避免每帧触发控件布局重算

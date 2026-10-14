@@ -133,22 +133,6 @@ func get_backpack_text() -> String:
 	return "%d / %d" % [_carry_count, carry_capacity]
 
 
-# 记忆的矿区坐标（未解锁坐标点记忆时返回空字符串）
-func get_memory_text() -> String:
-	if not _has_auto_return():
-		return ""
-	_cleanup_known_patches()
-	if known_patches.is_empty():
-		return ""
-	var result := ""
-	for i in known_patches.size():
-		var pos: Vector2 = _get_patch_pos(known_patches[i])
-		if i > 0:
-			result += "  "
-		result += "(%d, %d)" % [roundi(pos.x), roundi(pos.y)]
-	return result
-
-
 # 取矿区代表点：优先用矿区中心，退化到节点自身坐标
 func _get_patch_pos(patch: Node) -> Vector2:
 	if patch.has_method("get_center"):

@@ -48,8 +48,3 @@ theme_override_font_sizes/font_size = 18
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7747916, 0.9999997, 0.097635396, 1)
 theme_override_font_sizes/font_size = 18
-
-[node name="CoordsLabel" type="Label" parent="Margin/VBox" unique_id=1324113131]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7747916, 0.9999997, 0.097635396, 1)
-theme_override_font_sizes/font_size = 18
