@@ -35,7 +35,7 @@ const TECHS := {
 	"density": {"category": "能力升级", "name": "密度感知能力", "desc": "机器人感知周围密度，避免拥堵（占位）", "cost": {"copper_ingot": 20}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
 	"info_share": {"category": "能力升级", "name": "信息交流能力", "desc": "机器人之间共享记忆的坐标点", "cost": {"copper_ingot": 15}, "prereq": ["fallow", "add_robot"], "lab_stage": 4},
 	"resource_swap": {"category": "能力升级", "name": "资源交换", "desc": "背包空余的机器人可接收同伴的矿物", "cost": {"copper_ingot": 25}, "prereq": ["fallow", "add_robot"], "lab_stage": 3},
-	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（上限80）", "cost": {"copper_ingot": 50}, "prereq": ["fallow", "density", "info_share", "resource_swap", "add_robot"], "lab_stage": 5},
+	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（受「机器人数量上限」限制）", "cost": {"copper_ingot": 50}, "prereq": ["fallow", "density", "info_share", "resource_swap", "add_robot"], "lab_stage": 5},
 	#资源点升级
 	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2.5）", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 0},
 	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久（每级 ×1.5）", "cost": {"copper_ingot": 30}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 1},
@@ -44,20 +44,22 @@ const TECHS := {
 	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度（每级 +60/+100/+160）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 10}, {"copper_ingot": 50}, {"copper_ingot": 200}], "lab_stages": [0, 1, 2]},
 	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": ["add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 1},
 	"mine_speed": {"category": "机器人升级", "name": "采集速度", "desc": "缩短机器人采矿耗时（每级 -0.25 秒）", "cost": {"copper_ingot": 15}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stages": [0, 0, 0, 2, 2]},
-	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限（初始20，每级+20）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 500}, {"copper_ingot": 800}, {"copper_ingot": 1200}], "lab_stages": [3, 4, 5]},
-	"add_robot": {"category": "机器人升级", "name": "添加机器人", "desc": "每升一级立即获得一个机器人", "cost": {"copper_ingot": 5}, "prereq": [], "max_level": 80, "dynamic_cost": true, "cost_growth": 1.15, "lab_stage": 0},
+	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限（初始20，每级+40）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 500}, {"copper_ingot": 800}, {"copper_ingot": 1200}], "lab_stages": [3, 4, 5]},
+	# 注意：add_robot 不写 max_level —— 它的等级上限 = GameManager.get_robot_max()，
+	# 随「机器人数量上限」科技实时变化（见 get_tech_max_level）。
+	"add_robot": {"category": "机器人升级", "name": "添加机器人", "desc": "每升一级立即获得一个机器人（上限跟随「机器人数量上限」）", "cost": {"copper_ingot": 5}, "prereq": [], "dynamic_cost": true, "cost_growth": 1.15, "lab_stage": 0},
 	#精炼炉升级
 	"smelt_speed": {"category": "精炼炉升级", "name": "煅烧速度", "desc": "提升精炼炉的烧制速度（每级 -0.25 秒）", "cost": {"copper_ingot": 50}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
 	"double_smelt": {"category": "精炼炉升级", "name": "无中生有", "desc": "精炼炉有 15% 概率一次烧出两个铜锭", "cost": {"copper_ingot": 200}, "prereq": ["smelt_speed", "add_robot"], "lab_stage": 1},
 	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 200}, "prereq": ["double_smelt", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
-	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "在地图上新增一个精炼炉，并行烧制", "cost": {"copper_ingot": 80}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stage": 1},
+	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 80}, "prereq": ["regen_speed", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
 	#巨型玻璃罩
 	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"]},
 	}
 
 # ==================== 机器人数量上限 ====================
 const ROBOT_MAX_BASE := 20           # 基础上限
-const ROBOT_MAX_PER_LEVEL := 20      # 「机器人数量上限」科技每级增加的数量
+const ROBOT_MAX_PER_LEVEL := 40      # 「机器人数量上限」科技每级增加的数量
 
 func get_robot_max() -> int:
 	return ROBOT_MAX_BASE + ROBOT_MAX_PER_LEVEL * get_tech_level("robot_count")
@@ -84,11 +86,25 @@ func remove_item(item_type: String, amount: int) -> bool:
 func get_count(item_type: String) -> int:
 	return inventory.get(item_type, 0)
 
+# 全场所有精炼炉内「待烧铜矿」的总量。
+# 只统计已启用的炉子：未启用的炉子已退出 "furnace" 分组（见 RefiningFurnace.set_active）。
+# 炉子烧制会持续消耗矿量，所以这个值需要 UI 定时轮询，没有变化信号可用。
+func get_furnace_ore_total() -> int:
+	var total: int = 0
+	for node in get_tree().get_nodes_in_group("furnace"):
+		if node.has_method("get_ore_stock"):
+			total += node.get_ore_stock()
+	return total
+
 # ==================== 科技等级 ====================
 func get_tech_level(tech_id: String) -> int:
 	return tech_levels.get(tech_id, 0)
 
 func get_tech_max_level(tech_id: String) -> int:
+	# 「添加机器人」的等级上限 = 当前机器人数量上限，随「机器人数量上限」科技实时同步。
+	# 所以 TECHS 里不写死 max_level，否则会和 ROBOT_MAX_* 两处各说各话。
+	if tech_id == "add_robot":
+		return get_robot_max()
 	if _tech_max_level_overrides.has(tech_id):
 		return _tech_max_level_overrides[tech_id]
 	return TECHS.get(tech_id, {}).get("max_level", 1)

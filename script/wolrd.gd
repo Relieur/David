@@ -59,6 +59,9 @@ func _ready() -> void:
 
 
 # ==================== 精炼炉（沿用场景里摆放的位置） ====================
+# 「扩建精炼炉」的升级次数（固定 5 次）
+const FURNACE_UPGRADE_MAX := 5
+
 # 玩家在场景里手动摆放的炉子；开局只启用名字顺序里的第一个，
 # 之后每升一级「扩建精炼炉」就按名字顺序启用下一个。
 var _placed_furnaces: Array[RefiningFurnace] = []
@@ -81,8 +84,9 @@ func _collect_placed_furnaces() -> void:
 	furnace = _placed_furnaces[0]
 	furnace.set_active(true)
 	_reveal_furnace_index = 1
-	# 「扩建精炼炉」等级上限自动匹配炉子数量：N 个炉子 = 开局 1 个 + 升级 N-1 级
-	GameManager.set_tech_max_level("add_furnace", maxi(1, _placed_furnaces.size() - 1))
+	# 「扩建精炼炉」升级次数固定 5 次：开局 1 个炉子 + 升级 5 次 = 最多 6 个炉子。
+	# 场景里摆的炉子更多时按炉子数量自动提升，避免多出来的炉子永远出不来。
+	GameManager.set_tech_max_level("add_furnace", maxi(FURNACE_UPGRADE_MAX, _placed_furnaces.size() - 1))
 
 
 # 排序比较：取名字结尾的数字作为序号（无数字视作 0），序号相同再按名字比

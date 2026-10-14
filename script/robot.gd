@@ -6,6 +6,8 @@ class_name Robot
 @export var mine_range: float = 80.0         # 进入这个距离就开始挖
 @export var mine_time: float = 2          # 每次挖矿耗时
 @export var carry_capacity: int = 1          # 携带上限
+
+const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
 @export var deposit_range: float = 110.0     # 进入仓库这个距离就算卸货（3×3 炉子半宽 96，留出余量防止走进炉体）
 
 # ==================== 节点引用 ====================
