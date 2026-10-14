@@ -16,3 +16,24 @@ position = Vector2(64, 64)
 
 [node name="Ore" parent="." unique_id=71541184 instance=ExtResource("1_ore")]
 position = Vector2(0, -64)
+
+[node name="Ore4" parent="." unique_id=1068783327 instance=ExtResource("1_ore")]
+position = Vector2(128, 64)
+
+[node name="Ore5" parent="." unique_id=1356647119 instance=ExtResource("1_ore")]
+position = Vector2(0, 128)
+
+[node name="Ore6" parent="." unique_id=40988722 instance=ExtResource("1_ore")]
+position = Vector2(-64, 0)
+
+[node name="Ore7" parent="." unique_id=86978054 instance=ExtResource("1_ore")]
+position = Vector2(-64, 64)
+
+[node name="Ore8" parent="." unique_id=912116813 instance=ExtResource("1_ore")]
+position = Vector2(-64, 128)
+
+[node name="Ore9" parent="." unique_id=1792406159 instance=ExtResource("1_ore")]
+position = Vector2(0, 192)
+
+[node name="Ore10" parent="." unique_id=1026752932 instance=ExtResource("1_ore")]
+position = Vector2(56, 128)

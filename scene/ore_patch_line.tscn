@@ -1,16 +1,45 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://cfyqb0bl66ld6"]
 
-[ext_resource type="Script" path="res://script/ore_patch.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://cral4cah3grmo" path="res://scene/ore.tscn" id="1_ore"]
+[ext_resource type="Script" uid="uid://d1p4f56tu0dbm" path="res://script/ore_patch.gd" id="1_script"]
 
-[node name="OrePatch" type="Node2D"]
+[node name="OrePatch" type="Node2D" unique_id=1414043897]
 script = ExtResource("1_script")
 
-[node name="Ore1" parent="." instance=ExtResource("1_ore")]
+[node name="Ore1" parent="." unique_id=193011093 instance=ExtResource("1_ore")]
 position = Vector2(-64, 0)
 
-[node name="Ore2" parent="." instance=ExtResource("1_ore")]
-position = Vector2(0, 0)
+[node name="Ore2" parent="." unique_id=895889147 instance=ExtResource("1_ore")]
 
-[node name="Ore3" parent="." instance=ExtResource("1_ore")]
+[node name="Ore3" parent="." unique_id=186527614 instance=ExtResource("1_ore")]
 position = Vector2(64, 0)
+
+[node name="Ore" parent="." unique_id=71541184 instance=ExtResource("1_ore")]
+position = Vector2(0, 64)
+
+[node name="Ore4" parent="." unique_id=932915165 instance=ExtResource("1_ore")]
+position = Vector2(0, 128)
+
+[node name="Ore5" parent="." unique_id=1689636587 instance=ExtResource("1_ore")]
+position = Vector2(0, 192)
+
+[node name="Ore6" parent="." unique_id=1111054560 instance=ExtResource("1_ore")]
+position = Vector2(0, -64)
+
+[node name="Ore7" parent="." unique_id=1887559413 instance=ExtResource("1_ore")]
+position = Vector2(-64, 64)
+
+[node name="Ore8" parent="." unique_id=1087864717 instance=ExtResource("1_ore")]
+position = Vector2(0, -128)
+
+[node name="Ore9" parent="." unique_id=1021608695 instance=ExtResource("1_ore")]
+position = Vector2(64, -64)
+
+[node name="Ore10" parent="." unique_id=2116217467 instance=ExtResource("1_ore")]
+position = Vector2(64, 64)
+
+[node name="Ore11" parent="." unique_id=1532181812 instance=ExtResource("1_ore")]
+position = Vector2(0, -192)
+
+[node name="Ore12" parent="." unique_id=1398532252 instance=ExtResource("1_ore")]
+position = Vector2(64, -128)
