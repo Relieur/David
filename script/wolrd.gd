@@ -3,7 +3,7 @@ extends Node2D
 @onready var tilemap = $TileMapLayer
 @onready var camera_2d: CameraController = $Camera2D
 @onready var drop_container: Node2D = $DropContainer
-@onready var furnace: RefiningFurnace = $Furnace
+var furnace: RefiningFurnace                # 主炉引用，由 _collect_placed_furnaces() 赋值（炉子挂在 RobotContainer 下参与 y-sort）
 @onready var robot_container: Node2D = $RobotContainer
 @onready var decoration_container: Node2D = $DecorationContainer
 

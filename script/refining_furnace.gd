@@ -85,6 +85,10 @@ func set_active(active: bool) -> void:
 	visible = active
 	input_pickable = active
 	set_process(active)
+	# 停用的炉子同时关掉实体碰撞，否则隐藏的炉子仍会挡住机器人
+	var solid := get_node_or_null("SolidBody")
+	if solid != null:
+		solid.get_node("CollisionShape2D").disabled = not active
 	if active:
 		if not is_in_group("furnace"):
 			add_to_group("furnace")

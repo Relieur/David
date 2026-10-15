@@ -855,7 +855,7 @@ z_index = 10
 script = ExtResource("1_robot")
 
 [node name="Shadow" type="Sprite2D" parent="." unique_id=40372021]
-z_index = -1
+z_index = -10
 position = Vector2(0, 12)
 texture = ExtResource("2_shadow")
 modulate = Color(0, 0, 0, 0.45)

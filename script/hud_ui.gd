@@ -60,10 +60,13 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo \
-			and event.keycode == KEY_ESCAPE and _settings_root.visible:
-		_close_settings()
-		get_viewport().set_input_as_handled()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_R:
+			_toggle_hide_ui()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_ESCAPE and _settings_root.visible:
+			_close_settings()
+			get_viewport().set_input_as_handled()
 
 
 # ==================== 顶栏资源显示 ====================

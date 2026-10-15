@@ -296,7 +296,7 @@ const TECHS := {
 	#资源点升级
 	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2.5）", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 0},
 	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久（每级 ×1.5）", "cost": {"copper_ingot": 30}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 1},
-	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 150}, "prereq": ["add_furnace", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
+	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 150}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
 	#机器人升级
 	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度（每级 +60/+100/+160）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 10}, {"copper_ingot": 50}, {"copper_ingot": 200}], "lab_stages": [0, 1, 2]},
 	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": ["add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 1},
@@ -309,7 +309,7 @@ const TECHS := {
 	"smelt_speed": {"category": "精炼炉升级", "name": "煅烧速度", "desc": "提升精炼炉的烧制速度（每级 -0.25 秒）", "cost": {"copper_ingot": 50}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
 	"double_smelt": {"category": "精炼炉升级", "name": "无中生有", "desc": "精炼炉有 15% 概率一次烧出两个铜锭", "cost": {"copper_ingot": 200}, "prereq": ["smelt_speed", "add_robot"], "lab_stage": 1},
 	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 200}, "prereq": ["double_smelt", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
-	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 80}, "prereq": ["regen_speed", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
+	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 80}, "prereq": ["unlock_more_ores", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
 	#巨型玻璃罩
 	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"]},
 	}

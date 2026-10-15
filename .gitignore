@@ -15,6 +15,9 @@
 /bin/
 /export/
 
+# 协作/自动化工具本地目录（AI 记忆文件、调试截图等），不属于项目产物
+/.workbuddy/
+
 # IDE
 .idea/
 .vscode/*

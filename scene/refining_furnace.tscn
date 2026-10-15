@@ -7,8 +7,11 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
 size = Vector2(192, 192)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_solid"]
+size = Vector2(240, 240)
+
 [node name="Furnace" type="Area2D" unique_id=1240451256]
-z_index = 5
+z_index = 10
 script = ExtResource("1_73vke")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1416329392]
@@ -16,3 +19,8 @@ texture = ExtResource("2_73vke")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1473297900]
 shape = SubResource("RectangleShape2D_3rt66")
+
+[node name="SolidBody" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SolidBody"]
+shape = SubResource("RectangleShape2D_solid")

@@ -8,7 +8,7 @@ class_name Robot
 @export var carry_capacity: int = 1          # 携带上限
 
 const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
-@export var deposit_range: float = 110.0     # 进入仓库这个距离就算卸货（3×3 炉子半宽 96，留出余量防止走进炉体）
+@export var deposit_range: float = 150.0     # 卸货判定距离：炉体碰撞半宽 120 + 机器人半径 22 + 余量，停在炉体外圈即卸货
 
 # ==================== 节点引用 ====================
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
@@ -252,6 +252,31 @@ func _tick_idle(delta: float) -> void:
 	_play_anim("idle")
 
 
+# ==================== 绕炉避障 ====================
+# 朝炉子走且进入 FURNACE_AVOID_DIST 时，按距离混入切线方向，绕弧通过而不是贴墙滑行。
+const FURNACE_WALL_DIST := 175.0    # 绕行时与炉心保持的最近距离（碰撞半宽 120 + 机器人半径 22 + 余量）
+const FURNACE_AVOID_DIST := 330.0   # 进入这个距离就开始绕
+
+# skip 传目标炉子本身：回程卸货需要径直靠近它，不绕
+func _apply_furnace_avoidance(dir: Vector2, skip: Node2D = null) -> Vector2:
+	for node in get_tree().get_nodes_in_group("furnace"):
+		var f := node as Node2D
+		if f == null or f == skip:
+			continue
+		var to_f: Vector2 = f.global_position - global_position
+		var dist := to_f.length()
+		if dist >= FURNACE_AVOID_DIST or dist <= 0.001:
+			continue
+		if dir.dot(to_f / dist) <= 0.2:
+			continue  # 前进方向不是冲着炉子，不用绕
+		var tangent := (to_f / dist).rotated(PI * 0.5)
+		if tangent.dot(dir) < 0.0:
+			tangent = -tangent
+		var w := clampf((FURNACE_AVOID_DIST - dist) / (FURNACE_AVOID_DIST - FURNACE_WALL_DIST), 0.0, 1.0)
+		dir = (dir * (1.0 - w) + tangent * w).normalized()
+	return dir
+
+
 # ==================== 走向矿石 ====================
 func _tick_moving() -> void:
 	if _target_ore == null or not is_instance_valid(_target_ore):
@@ -269,6 +294,8 @@ func _tick_moving() -> void:
 		return
 
 	var dir := (_target_ore.global_position - global_position).normalized()
+	if dist > FURNACE_AVOID_DIST:
+		dir = _apply_furnace_avoidance(dir)  # 快到矿点时不再绕，保证最终能贴到矿上
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
@@ -306,7 +333,7 @@ func _tick_returning() -> void:
 		_start_deposit()
 		return
 
-	var dir := (_furnace.global_position - global_position).normalized()
+	var dir := _apply_furnace_avoidance((_furnace.global_position - global_position).normalized(), _furnace)
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 

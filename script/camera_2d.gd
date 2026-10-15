@@ -153,4 +153,8 @@ func _zoom_at_mouse(factor:float)->void:
 	var mouse_world_after:=get_global_mouse_position()
 	var diff:=mouse_world-mouse_world_after
 	position+=diff
-	_target_position+=diff
+	# 缩放后立刻收敛到合法范围：否则 _target_position 会超出边界，
+	# 下一帧 _process 的 lerp 再把 position 慢慢拉回，形成「回弹感」
+	_target_position=position
+	_clamp_target()
+	position=_target_position
