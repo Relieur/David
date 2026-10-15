@@ -1,9 +1,347 @@
 [gd_scene format=3 uid="uid://cdhm0hwk0h5rk"]
 
-[node name="Start" type="Control" unique_id=1873248996]
+[ext_resource type="Script" uid="uid://cwfs03dpo227y" path="res://script/start.gd" id="1_start"]
+[ext_resource type="Theme" uid="uid://vx13f4ala1me" path="res://ui/menu_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" uid="uid://10fga1y56ksk" path="res://art/Scene_BG.png" id="3_bg"]
+[ext_resource type="Texture2D" uid="uid://ckrj3yhvdv8ni" path="res://art/Scene_shadow.png" id="4_shadow"]
+[ext_resource type="Texture2D" uid="uid://b4kwoy1phx3df" path="res://art/UI/menu_dots.png" id="5_dots"]
+[ext_resource type="Texture2D" uid="uid://ckc153lg14dl2" path="res://art/UI/menu_speedlines.png" id="6_speed"]
+[ext_resource type="Texture2D" uid="uid://3uf2v1kd2wtn" path="res://art/robot/walk_front/bot_front_00.png" id="7_robot"]
+[ext_resource type="Texture2D" uid="uid://0umqmj2rbti5" path="res://art/UI/icon_play_olive.png" id="8_play"]
+[ext_resource type="Texture2D" uid="uid://bo3iysie8iyka" path="res://art/UI/UI_HUD_Gear_olive.png" id="9_gear"]
+[ext_resource type="Texture2D" uid="uid://l3e23ptdnvbd" path="res://art/UI/icon_exit_olive.png" id="10_exit"]
+[ext_resource type="Texture2D" uid="uid://loqx24bkqe7m" path="res://art/UI/UI_TechTree_Close_olive.png" id="11_close"]
+
+[sub_resource type="StyleBoxFlat" id="SBF_titlebar"]
+bg_color = Color(0.705882, 0.847059, 0.235294, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="ButtonGroup" id="BG_quality"]
+
+[sub_resource type="ButtonGroup" id="BG_display"]
+
+[node name="Start" type="Control" unique_id=2002209660]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_start")
+
+[node name="BG" type="TextureRect" parent="." unique_id=1047774270]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+
+[node name="Shadow" type="TextureRect" parent="." unique_id=1290250367]
+modulate = Color(1, 1, 1, 0.45)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("4_shadow")
+expand_mode = 1
+
+[node name="Dots" type="TextureRect" parent="." unique_id=864011606]
+layout_mode = 1
+offset_left = 1440.0
+offset_top = 84.0
+offset_right = 1820.0
+offset_bottom = 404.0
+mouse_filter = 2
+texture = ExtResource("5_dots")
+expand_mode = 1
+
+[node name="SpeedLines" type="TextureRect" parent="." unique_id=1756156651]
+layout_mode = 1
+offset_left = 120.0
+offset_top = 640.0
+offset_right = 360.0
+offset_bottom = 820.0
+mouse_filter = 2
+texture = ExtResource("6_speed")
+expand_mode = 1
+
+[node name="Robot" type="TextureRect" parent="." unique_id=1998205364]
+layout_mode = 1
+offset_left = 1600.0
+offset_top = 668.0
+offset_right = 1728.0
+offset_bottom = 924.0
+mouse_filter = 2
+texture = ExtResource("7_robot")
+expand_mode = 1
+
+[node name="Menu" type="CenterContainer" parent="." unique_id=1392167421]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="Menu" unique_id=1503883855]
+layout_mode = 2
+theme_override_constants/separation = 56
+alignment = 1
+
+[node name="TitleBox" type="VBoxContainer" parent="Menu/Column" unique_id=287539331]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Title" type="Label" parent="Menu/Column/TitleBox" unique_id=1418760865]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 72
+text = "异星拓荒"
+horizontal_alignment = 1
+
+[node name="TitleBar" type="Panel" parent="Menu/Column/TitleBox" unique_id=1156655889]
+custom_minimum_size = Vector2(88, 8)
+layout_mode = 2
+theme_override_styles/panel = SubResource("SBF_titlebar")
+
+[node name="Buttons" type="VBoxContainer" parent="Menu/Column" unique_id=1010642526]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="StartButton" type="Button" parent="Menu/Column/Buttons" unique_id=1533729347]
+custom_minimum_size = Vector2(300, 64)
+layout_mode = 2
+text = "开始游戏"
+icon = ExtResource("8_play")
+
+[node name="SettingsButton" type="Button" parent="Menu/Column/Buttons" unique_id=875984873]
+custom_minimum_size = Vector2(300, 64)
+layout_mode = 2
+text = "游戏设置"
+icon = ExtResource("9_gear")
+
+[node name="QuitButton" type="Button" parent="Menu/Column/Buttons" unique_id=1413190849]
+custom_minimum_size = Vector2(300, 64)
+layout_mode = 2
+text = "退出游戏"
+icon = ExtResource("10_exit")
+
+[node name="SettingsRoot" type="Control" parent="." unique_id=1061073574]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="SettingsRoot" unique_id=1516921819]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.12549, 0.062745, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="SettingsRoot" unique_id=1029566995]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -240.0
+offset_right = 320.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="SettingsRoot/Panel" unique_id=1397891066]
+layout_mode = 2
+theme_override_constants/separation = 26
+
+[node name="Header" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1726457055]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SettingsRoot/Panel/VBox/Header" unique_id=507625461]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 28
+text = "游戏设置"
+
+[node name="CloseButton" type="TextureButton" parent="SettingsRoot/Panel/VBox/Header" unique_id=1778118833]
+custom_minimum_size = Vector2(38, 38)
+layout_mode = 2
+size_flags_vertical = 4
+texture_normal = ExtResource("11_close")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Sep1" type="HSeparator" parent="SettingsRoot/Panel/VBox" unique_id=1920116867]
+layout_mode = 2
+
+[node name="MusicRow" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1505759855]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/MusicRow" unique_id=1280953117]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 15
+text = "音乐音量"
+
+[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/MusicRow" unique_id=1604865419]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+value = 0.7
+
+[node name="Value" type="Label" parent="SettingsRoot/Panel/VBox/MusicRow" unique_id=2066532761]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.419608, 0.458824, 0.329412, 1)
+theme_override_font_sizes/font_size = 13
+text = "70%"
+horizontal_alignment = 2
+
+[node name="SfxRow" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1011848784]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/SfxRow" unique_id=1912051555]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 15
+text = "音效音量"
+
+[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/SfxRow" unique_id=1981228834]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+value = 0.85
+
+[node name="Value" type="Label" parent="SettingsRoot/Panel/VBox/SfxRow" unique_id=669497999]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.419608, 0.458824, 0.329412, 1)
+theme_override_font_sizes/font_size = 13
+text = "85%"
+horizontal_alignment = 2
+
+[node name="Sep2" type="HSeparator" parent="SettingsRoot/Panel/VBox" unique_id=2103351997]
+layout_mode = 2
+
+[node name="QualityRow" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1949744448]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/QualityRow" unique_id=1261091781]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 15
+text = "画质"
+
+[node name="Seg" type="HBoxContainer" parent="SettingsRoot/Panel/VBox/QualityRow" unique_id=1340731878]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Low" type="Button" parent="SettingsRoot/Panel/VBox/QualityRow/Seg" unique_id=429037002]
+custom_minimum_size = Vector2(52, 28)
+layout_mode = 2
+theme_type_variation = &"seg"
+toggle_mode = true
+button_group = SubResource("BG_quality")
+text = "低"
+
+[node name="Mid" type="Button" parent="SettingsRoot/Panel/VBox/QualityRow/Seg" unique_id=1071512710]
+custom_minimum_size = Vector2(52, 28)
+layout_mode = 2
+theme_type_variation = &"seg"
+toggle_mode = true
+button_group = SubResource("BG_quality")
+text = "中"
+
+[node name="High" type="Button" parent="SettingsRoot/Panel/VBox/QualityRow/Seg" unique_id=244685139]
+custom_minimum_size = Vector2(52, 28)
+layout_mode = 2
+theme_type_variation = &"seg"
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("BG_quality")
+text = "高"
+
+[node name="DisplayRow" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1384858432]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/DisplayRow" unique_id=1822384937]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+theme_override_font_sizes/font_size = 15
+text = "显示模式"
+
+[node name="Seg" type="HBoxContainer" parent="SettingsRoot/Panel/VBox/DisplayRow" unique_id=1729511891]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Windowed" type="Button" parent="SettingsRoot/Panel/VBox/DisplayRow/Seg" unique_id=294682806]
+custom_minimum_size = Vector2(60, 28)
+layout_mode = 2
+theme_type_variation = &"seg"
+toggle_mode = true
+button_group = SubResource("BG_display")
+text = "窗口"
+
+[node name="Fullscreen" type="Button" parent="SettingsRoot/Panel/VBox/DisplayRow/Seg" unique_id=95423584]
+custom_minimum_size = Vector2(60, 28)
+layout_mode = 2
+theme_type_variation = &"seg"
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("BG_display")
+text = "全屏"
+
+[node name="Sep3" type="HSeparator" parent="SettingsRoot/Panel/VBox" unique_id=850255914]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=841898600]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="ResetButton" type="Button" parent="SettingsRoot/Panel/VBox/Footer" unique_id=277372384]
+custom_minimum_size = Vector2(112, 40)
+layout_mode = 2
+text = "恢复默认"
+
+[node name="SaveButton" type="Button" parent="SettingsRoot/Panel/VBox/Footer" unique_id=155374606]
+custom_minimum_size = Vector2(96, 40)
+layout_mode = 2
+theme_type_variation = &"primary"
+text = "保存"
