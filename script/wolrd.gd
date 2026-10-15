@@ -55,7 +55,7 @@ func _ready() -> void:
 		_reveal_index = 1
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	# [测试] 开局赠送 100000 铜锭，方便测试科技树，后期删除
-	GameManager.add_item("copper_ingot", 100000)
+	# GameManager.add_item("copper_ingot", 100000)
 
 
 # ==================== 精炼炉（沿用场景里摆放的位置） ====================
@@ -119,9 +119,20 @@ func _spawn_robots() -> void:
 		_spawn_robot()
 
 
+# 统计场上真实的机器人数量。
+# 注意：RobotContainer 下还挂着精炼炉（参与 y-sort），
+# 不能直接用 get_child_count()，否则会把炉子算成机器人。
+func _count_robots() -> int:
+	var n := 0
+	for child in robot_container.get_children():
+		if child is Robot:
+			n += 1
+	return n
+
+
 # 生成一个机器人，随机放在仓库周围；达到数量上限时返回 false
 func _spawn_robot() -> bool:
-	if robot_container.get_child_count() >= _get_robot_max():
+	if _count_robots() >= _get_robot_max():
 		return false
 	var robot := ROBOT_SCENE.instantiate() as Robot
 	var angle := randf() * TAU
@@ -169,13 +180,13 @@ func _process(delta: float) -> void:
 func _tick_reproduce(delta: float) -> void:
 	if not GameManager.is_tech_unlocked("reproduce"):
 		return
-	if robot_container.get_child_count() >= _get_robot_max():
+	if _count_robots() >= _get_robot_max():
 		return
 	_reproduce_timer += delta
 	if _reproduce_timer >= REPRODUCE_INTERVAL:
 		_reproduce_timer = 0.0
 		if _spawn_robot():
-			print("机器人繁殖，当前数量 %d" % robot_container.get_child_count())
+			print("机器人繁殖，当前数量 %d" % _count_robots())
 
 
 # 取消选择机器人
@@ -252,7 +263,11 @@ func _on_tech_unlocked(tech_id: String) -> void:
 			if child is OrePatch:
 				child.refill_to_max()
 	elif tech_id == "add_robot":
-		_spawn_robot()
+		if not _spawn_robot():
+			# 正常情况下不会发生（购买前 can_unlock_tech 已判定过上限）。
+			# 真到了这里说明两处计数口径又不一致了，铜锭已被扣掉，必须报警排查。
+			push_warning("添加机器人失败：已扣除铜锭但未生成机器人（机器人 %d / 上限 %d）"
+				% [_count_robots(), _get_robot_max()])
 	elif tech_id == "add_furnace":
 		_reveal_next_furnace()
 	elif tech_id == "info_share":

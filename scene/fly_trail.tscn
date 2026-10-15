@@ -1,0 +1,36 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://script/fly_trail.gd" id="1_ft"]
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+offsets = PackedFloat32Array(0, 0.32, 0.68, 1)
+colors = PackedColorArray(1, 0.9, 0.35, 1, 0.45, 0.95, 0.75, 0.9, 0.16, 0.8, 0.88, 0.5, 0.08, 0.6, 0.72, 0)
+
+[node name="FlyTrail" type="Node2D"]
+script = ExtResource("1_ft")
+
+[node name="Particles" type="CPUParticles2D" parent="."]
+emitting = false
+amount = 90
+lifetime = 0.45
+one_shot = false
+preprocess = 0.0
+explosiveness = 0.0
+randomness = 0.5
+lifetime_randomness = 0.3
+local_coords = false
+emission_shape = 2
+emission_sphere_radius = 5.0
+direction = Vector2(0, 1)
+spread = 40.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 15.0
+initial_velocity_max = 65.0
+angular_velocity_min = -180.0
+angular_velocity_max = 180.0
+damping_min = 1.5
+damping_max = 3.0
+scale_amount_min = 2.0
+scale_amount_max = 4.5
+color = Color(1, 0.9, 0.4, 1)
+color_ramp = SubResource("Gradient_trail")

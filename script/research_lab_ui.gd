@@ -299,9 +299,15 @@ func _make_tech_card(tech_id: String) -> Control:
 
 	var maxed: bool = GameManager.is_tech_unlocked(tech_id)
 	if maxed:
-		btn.text = "已满级"
+		# 开局自带的科技：标注为「初始自带」，与正常满级区分开
+		if GameManager.is_default_tech(tech_id):
+			btn.text = "初始自带"
+			status_label.text = "▶ 开局即拥有，无需研究"
+			status_label.modulate = Color(0.55, 0.85, 0.6, 1.0)
+		else:
+			btn.text = "已满级"
+			status_label.text = ""
 		btn.disabled = true
-		status_label.text = ""
 	elif GameManager.can_unlock_tech(tech_id):
 		btn.pressed.connect(_on_tech_purchase.bind(tech_id))
 		status_label.text = ""

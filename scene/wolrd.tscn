@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
 [ext_resource type="PackedScene" uid="uid://cfyqb0bl66ld6" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
 [ext_resource type="PackedScene" uid="uid://bbkncruibrt5i" path="res://scene/hud_ui.tscn" id="14_hud"]
+[ext_resource type="PackedScene" path="res://scene/player_cursor.tscn" id="15_pc"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -77,6 +78,8 @@ script = ExtResource("4_whfxa")
 
 [node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
+
+[node name="PlayerCursor" parent="." instance=ExtResource("15_pc")]
 
 [node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
 position = Vector2(4720, 2616)

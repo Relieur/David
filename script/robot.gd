@@ -83,10 +83,32 @@ func _update_move_speed() -> void:
 
 
 # ==================== 点击选中 ====================
+# 点击优先级：机器人 > 掉落物 > 矿石（挖矿）
+# 拾取顺序不保证，所以由掉落物/矿石主动让位：先用这个判定看看是不是点在机器人身上
+static func is_point_over_robot(point: Vector2) -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	var space := tree.root.world_2d.direct_space_state
+	if space == null:
+		return false
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = point
+	params.collide_with_areas = false
+	params.collide_with_bodies = true
+	var hits := space.intersect_point(params, 32)
+	for hit in hits:
+		if hit.collider is Robot:
+			return true
+	return false
+
+
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton \
 	and event.pressed \
 	and event.button_index == MOUSE_BUTTON_LEFT:
+		# 机器人优先级最高：吞掉本次点击，避免同一次点击再触发掉落物回收 / 挖矿
+		get_viewport().set_input_as_handled()
 		GameManager.select_robot(self)
 
 

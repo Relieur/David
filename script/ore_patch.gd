@@ -6,9 +6,13 @@ class_name OrePatch
 signal mineral_dropped(world_pos: Vector2)
 
 
+# 挖矿火花特效（一次性，播完自动回收）
+const MINE_SPARK_SCENE: PackedScene = preload("res://scene/mine_spark.tscn")
+
+
 # ==================== 采集规则 ====================
-const BASE_INTERACT_TIME := 3        # 耐久正常时：每 3 次交互掉落 1 个矿物
-const LOW_DUR_INTERACT_TIME := 4     # 耐久 <= 15% 时：每 4 次交互掉落 1 个矿物
+const BASE_INTERACT_TIME := 4        # 耐久正常时：每 4 次交互掉落 1 个矿物
+const LOW_DUR_INTERACT_TIME := 5     # 耐久 <= 15% 时：每 5 次交互掉落 1 个矿物
 const LOW_DURABILITY_THRESHOLD := 15.0
 const DURABILITY_PER_DROP := 5.0     # 每掉落 1 个矿物，耐久下降 5%
 
@@ -58,16 +62,26 @@ func get_center() -> Vector2:
 
 
 # 机器人开采一次（产出直接进机器人背包，不产生掉落物）
-func mine_once() -> bool:
-	return _register_interaction()
+# fx_pos：火花生成位置，缺省时用矿区中心
+func mine_once(fx_pos := Vector2.INF) -> bool:
+	return _register_interaction(fx_pos)
 
 
 # 玩家点击开采一次（掉落矿物时发出信号，由外部生成掉落物）
 func player_mine_at(world_pos: Vector2) -> bool:
-	if _register_interaction():
+	if _register_interaction(world_pos):
 		mineral_dropped.emit(world_pos)
 		return true
 	return false
+
+
+# 在被采的矿石位置放一簇蓝绿色火花；power 越大颗粒越多、飞得越远
+func _spawn_mine_spark(world_pos: Vector2, power: float) -> void:
+	var spark := MINE_SPARK_SCENE.instantiate() as Node2D
+	add_child(spark)
+	spark.global_position = world_pos   # 火花根节点 top_level，直接用世界坐标
+	if spark.has_method("setup"):
+		spark.setup(power)
 
 
 # 当前交互次数上限（耐久降低后变慢）
@@ -98,17 +112,21 @@ func get_durability_ratio() -> float:
 
 
 # 累计一次交互，满 interact_time 时掉 1 矿并降低耐久，返回是否掉落
-func _register_interaction() -> bool:
+# fx_pos：这一次交互发生在哪个世界坐标（火花生成点），缺省时用矿区中心
+func _register_interaction(fx_pos := Vector2.INF) -> bool:
+	var spark_pos := get_center() if fx_pos == Vector2.INF else fx_pos
 	_interact_count += 1
 	if _interact_count < _interact_time():
 		# 未掉落：播「交互」音效（挖矿动作，2D 空间化 + 限频 + 密度压音）
 		GameManager.play_grab_at(get_center())
+		_spawn_mine_spark(spark_pos, 1.0)   # 普通一击：小簇火花
 		return false
 	_interact_count = 0
 	durability = maxf(0.0, durability - DURABILITY_PER_DROP)
 	_update_visual()
 	# 真正挖下矿物：播「掉落」音效（进机器人背包或产生掉落物）
 	GameManager.play_drop_at(get_center())
+	_spawn_mine_spark(spark_pos, 2.0)       # 掉矿瞬间：更明显的一大簇
 	return true
 
 

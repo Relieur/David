@@ -27,6 +27,9 @@ func _ready() -> void:
 # 点击矿石：若已选中机器人则派它去挖（不计入玩家交互），否则玩家自行开采一次
 func _on_input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# 机器人优先级最高：点在机器人身上时让给机器人选中，跳过挖矿
+		if Robot.is_point_over_robot(get_global_mouse_position()):
+			return
 		# 掉落物优先：若点击位置有掉落物覆盖（正在被玩家拖动），跳过挖矿
 		if _is_point_over_dropped_item(get_global_mouse_position()):
 			return
@@ -64,18 +67,23 @@ func _is_point_over_dropped_item(point: Vector2) -> bool:
 	return false
 
 
-# 玩家直接开采一次（不经过机器人），掉落矿物由矿点信号通知外部
+# 玩家直接开采一次（不经过机器人），掉落矿物由矿点信号通知外部。
+# 受全局「玩家挖掘间隔」限制：冷却中点击无效，光标上方进度条展示恢复进度。
 func player_mine() -> void:
+	if not GameManager.can_player_mine():
+		return
+	GameManager.start_player_mine_cooldown()
 	var patch := get_patch()
 	if patch != null and patch.has_method("player_mine_at"):
 		patch.player_mine_at(global_position)
 
 
 # 机器人开采一次，返回是否真正产出矿物；耐久与交互计数统一交给所属矿点
+# 火花直接生成在机器人采的这个矿石格子上，而不是矿区中心
 func mine() -> bool:
 	var patch := get_patch()
 	if patch != null and patch.has_method("mine_once"):
-		return patch.mine_once()
+		return patch.mine_once(global_position)
 	return false
 
 

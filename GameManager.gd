@@ -48,6 +48,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_player_mine_cooldown(delta)
 	_duck_timer -= delta
 	if _duck_timer <= 0.0:
 		_duck_timer = 0.3
@@ -209,6 +210,41 @@ func _get_duck_db() -> float:
 	return minf(DUCK_MAX_DB, float(_mining_count - DUCK_FREE_COUNT) * DUCK_PER_ROBOT_DB)
 
 
+# ==================== 玩家手动挖掘节奏 ====================
+# 间隔总开关：false = 代码保留但不生效（玩家可连续挖，无冷却，与加此功能前一致）
+const PLAYER_MINE_LIMIT_ENABLED := false
+const PLAYER_MINE_INTERVAL := 0.6      # 玩家两次手动挖掘之间的最短间隔（秒），调小=挖得更快
+
+var _player_mine_cooldown: float = 0.0 # 剩余冷却时间，>0 时玩家挖不动
+
+
+# 玩家现在能不能手动挖（冷却结束返回 true）
+func can_player_mine() -> bool:
+	if not PLAYER_MINE_LIMIT_ENABLED:
+		return true
+	return _player_mine_cooldown <= 0.0
+
+
+# 冷却恢复进度：0=刚挖完不可用，1=随时可挖（给光标上方进度条用）
+func get_player_mine_ratio() -> float:
+	if not PLAYER_MINE_LIMIT_ENABLED or PLAYER_MINE_INTERVAL <= 0.0:
+		return 1.0
+	return 1.0 - clampf(_player_mine_cooldown / PLAYER_MINE_INTERVAL, 0.0, 1.0)
+
+
+# 玩家挖完一次，立刻进入冷却
+func start_player_mine_cooldown() -> void:
+	if not PLAYER_MINE_LIMIT_ENABLED:
+		return
+	_player_mine_cooldown = PLAYER_MINE_INTERVAL
+
+
+# 每帧推进冷却
+func _tick_player_mine_cooldown(delta: float) -> void:
+	if _player_mine_cooldown > 0.0:
+		_player_mine_cooldown = maxf(0.0, _player_mine_cooldown - delta)
+
+
 # 在指定世界坐标播放一个 2D 音效（带距离衰减，超出 max_distance 自动静音）
 func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> void:
 	if stream == null:
@@ -286,17 +322,17 @@ const CATEGORY_ORDER := ["能力升级", "资源点升级", "机器人升级", "
 
 const TECHS := {
 	#能力升级
-	"memory_auto": {"category": "能力升级", "name": "坐标点记忆、自动寻路", "desc": "机器人记忆矿点与仓库，空闲时自动前往", "cost": {"copper_ingot": 5}, "prereq": ["add_robot"], "lab_stage": 1},
-	"fallow": {"category": "能力升级", "name": "休耕意识", "desc": "矿点耐久低于15%时跳过，恢复到80%以上才继续开采", "cost": {"copper_ingot": 20}, "prereq": ["memory_auto", "add_robot"], "lab_stage": 2},
+	"memory_auto": {"category": "能力升级", "name": "坐标点记忆、自动寻路", "desc": "机器人记忆矿点与仓库，空闲时自动前往（开局自带，无需研究）", "cost": {"copper_ingot": 70}, "prereq": ["add_robot"], "lab_stage": 0},
+	"fallow": {"category": "能力升级", "name": "休耕意识", "desc": "矿点耐久低于15%时跳过，恢复到80%以上才继续开采", "cost": {"copper_ingot": 80}, "prereq": ["memory_auto", "add_robot"], "lab_stage": 1},
 	"priority_sort": {"category": "能力升级", "name": "优先排序能力", "desc": "机器人优先前往最近的矿点或仓库", "cost": {"copper_ingot": 10}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
 	"density": {"category": "能力升级", "name": "密度感知能力", "desc": "机器人感知周围密度，避免拥堵（占位）", "cost": {"copper_ingot": 20}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
 	"info_share": {"category": "能力升级", "name": "信息交流能力", "desc": "机器人之间共享记忆的坐标点", "cost": {"copper_ingot": 15}, "prereq": ["fallow", "add_robot"], "lab_stage": 4},
 	"resource_swap": {"category": "能力升级", "name": "资源交换", "desc": "背包空余的机器人可接收同伴的矿物", "cost": {"copper_ingot": 25}, "prereq": ["fallow", "add_robot"], "lab_stage": 3},
 	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（受「机器人数量上限」限制）", "cost": {"copper_ingot": 50}, "prereq": ["fallow", "density", "info_share", "resource_swap", "add_robot"], "lab_stage": 5},
 	#资源点升级
-	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2.5）", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 0},
+	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2.5）", "cost": {"copper_ingot": 20}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 0},
 	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久（每级 ×1.5）", "cost": {"copper_ingot": 30}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 1},
-	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 150}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
+	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 50}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
 	#机器人升级
 	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度（每级 +60/+100/+160）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 10}, {"copper_ingot": 50}, {"copper_ingot": 200}], "lab_stages": [0, 1, 2]},
 	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": ["add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 1},
@@ -313,6 +349,15 @@ const TECHS := {
 	#巨型玻璃罩
 	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"]},
 	}
+
+# 开局自带、无需研究的科技：机器人天生就会记忆矿点坐标并自动寻路。
+# 这些科技的等级恒为满级，科技树里显示成「初始自带」，不能再花铜锭购买（购买入口被 can_unlock_tech 拦掉）。
+const DEFAULT_TECHS: Array[String] = ["memory_auto"]
+
+
+# 是否开局自带（科技树里不可购买、等级恒满）
+func is_default_tech(tech_id: String) -> bool:
+	return DEFAULT_TECHS.has(tech_id)
 
 # ==================== 机器人数量上限 ====================
 const ROBOT_MAX_BASE := 20           # 基础上限
@@ -355,7 +400,11 @@ func get_furnace_ore_total() -> int:
 
 # ==================== 科技等级 ====================
 func get_tech_level(tech_id: String) -> int:
-	return tech_levels.get(tech_id, 0)
+	var lv: int = tech_levels.get(tech_id, 0)
+	# 开局自带的科技等级恒为满级（不写进 tech_levels，避免与存档 / 重置逻辑混淆）
+	if DEFAULT_TECHS.has(tech_id):
+		return maxi(lv, get_tech_max_level(tech_id))
+	return lv
 
 func get_tech_max_level(tech_id: String) -> int:
 	# 「添加机器人」的等级上限 = 当前机器人数量上限，随「机器人数量上限」科技实时同步。
@@ -395,6 +444,9 @@ func is_tech_unlocked(tech_id: String) -> bool:
 # 是否可以解锁（存在 + 没满级 + 前置满足 + 资源够）
 func can_unlock_tech(tech_id: String) -> bool:
 	if not TECHS.has(tech_id):
+		return false
+	# 开局自带：无需研究，也不允许再花铜锭购买
+	if is_default_tech(tech_id):
 		return false
 	if is_tech_unlocked(tech_id):
 		return false
@@ -467,4 +519,5 @@ func clear() -> void:
 	inventory.clear()
 	tech_levels.clear()
 	selected_robot = null
+	_player_mine_cooldown = 0.0
 	inventory_changed.emit(inventory)
