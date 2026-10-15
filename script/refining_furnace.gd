@@ -14,8 +14,18 @@ const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 const FLOATER_DURATION := 0.9         # 「+N」浮动文字的存在时长（秒）
 const FLOATER_RISE := 42.0            # 「+N」浮动文字的上升距离（像素）
 
+# 炉体外观：默认待机 / 燃烧中
+const SPRITE_IDLE := preload("res://art/Inventory_Idle.png")
+const SPRITE_ACTIVE := preload("res://art/Inventory_active.png")
+
+const BURN_FADE_DURATION := 0.18       # 待机 ↔ 燃烧的贴图交叉过渡时长（秒，快速）
+
 @onready var collision_shape_2d: CollisionShape2D = $CollisionShape2D
 @onready var sprite_2d: Sprite2D = $Sprite2D
+
+var _active_sprite: Sprite2D = null       # 燃烧态贴图（叠在待机图之上，做交叉淡入淡出）
+var _burning_particles: CPUParticles2D = null  # 燃烧时的橙色粒子
+var _fade_tween: Tween = null            # 贴图过渡 tween
 
 var _smelt_timer: float = 0.0        # 当前铜锭的烧制计时
 var _ore_stock: int = 0              # 本炉独立存储的待烧铜矿数量（不与其它炉共享）
@@ -33,6 +43,7 @@ func _ready() -> void:
 		input_event.connect(_on_input_event)
 	_align_to_grid()
 	_create_stock_label()
+	_setup_burning_visual()
 
 
 # 创建「炉内矿量」显示标签（放在炉体下方）
@@ -132,10 +143,60 @@ func _set_burning(burning: bool) -> void:
 	if _burning == burning:
 		return
 	_burning = burning
+	_apply_burning_visual(burning)
 	if burning:
 		GameManager.furnace_burning_started()
 	else:
 		GameManager.furnace_burning_stopped()
+
+
+# 初始化燃烧态外观：创建叠加的 active 贴图 + 橙色粒子（都在待机图上层）
+func _setup_burning_visual() -> void:
+	# 燃烧态贴图：叠在待机图之上，初始全透明
+	_active_sprite = Sprite2D.new()
+	_active_sprite.texture = SPRITE_ACTIVE
+	_active_sprite.modulate = Color(1, 1, 1, 0)
+	add_child(_active_sprite)
+
+	# 橙红相间粒子：从炉体下半部小范围向上喷发
+	_burning_particles = CPUParticles2D.new()
+	_burning_particles.amount = 24
+	_burning_particles.lifetime = 0.7
+	_burning_particles.one_shot = false
+	_burning_particles.explosiveness = 0.0
+	_burning_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_burning_particles.emission_rect_extents = Vector2(28, 12)
+	_burning_particles.position = Vector2(0, 55)
+	_burning_particles.direction = Vector2(0, -1)
+	_burning_particles.spread = 25.0
+	_burning_particles.gravity = Vector2(0, 12)
+	_burning_particles.initial_velocity_min = 20.0
+	_burning_particles.initial_velocity_max = 55.0
+	_burning_particles.scale_amount_min = 3.0
+	_burning_particles.scale_amount_max = 6.0
+	_burning_particles.color = Color(1.0, 0.55, 0.15, 0.85)
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.5, 0.1, 1.0))          # 橙
+	ramp.add_point(0.33, Color(1.0, 0.15, 0.05, 0.9))     # 红
+	ramp.add_point(0.66, Color(1.0, 0.58, 0.16, 0.6))     # 橙
+	ramp.add_point(1.0, Color(1.0, 0.22, 0.02, 0.0))      # 红 → 透明
+	_burning_particles.color_ramp = ramp
+	_burning_particles.z_index = 2
+	_burning_particles.emitting = false
+	add_child(_burning_particles)
+
+
+# 应用燃烧态视觉：交叉淡入淡出贴图 + 开关粒子
+func _apply_burning_visual(burning: bool) -> void:
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade_tween = create_tween()
+	var idle_color := Color(1, 1, 1, 0.0 if burning else 1.0)
+	var active_color := Color(1, 1, 1, 1.0 if burning else 0.0)
+	_fade_tween.tween_property(sprite_2d, "modulate", idle_color, BURN_FADE_DURATION)
+	_fade_tween.parallel().tween_property(_active_sprite, "modulate", active_color, BURN_FADE_DURATION)
+	if _burning_particles != null:
+		_burning_particles.emitting = burning
 
 
 # ==================== 「+N」浮动效果 ====================
