@@ -14,6 +14,8 @@
 [ext_resource type="PackedScene" uid="uid://cfyqb0bl66ld6" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
 [ext_resource type="PackedScene" uid="uid://bbkncruibrt5i" path="res://scene/hud_ui.tscn" id="14_hud"]
 [ext_resource type="PackedScene" path="res://scene/player_cursor.tscn" id="15_pc"]
+[ext_resource type="Script" path="res://script/intro_dialogue.gd" id="16_intro"]
+[ext_resource type="Texture2D" path="res://art/UI/UI_Dialogue_BG.png" id="17_dlg"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -75,6 +77,43 @@ script = ExtResource("4_whfxa")
 [node name="ResearchLabUI" parent="UILayer" unique_id=277934063 instance=ExtResource("9_labui")]
 
 [node name="RobotPopup" parent="UILayer" unique_id=1172523525 instance=ExtResource("12_popup")]
+
+[node name="IntroDialogue" type="Control" parent="UILayer" unique_id=200001001]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("16_intro")
+
+[node name="BG" type="TextureRect" parent="UILayer/IntroDialogue" unique_id=200001002]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -580.5
+offset_top = 110.0
+offset_right = 580.5
+offset_bottom = 272.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = ExtResource("17_dlg")
+expand_mode = 1
+
+[node name="Label" type="Label" parent="UILayer/IntroDialogue/BG" unique_id=200001003]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
+theme_override_font_sizes/font_size = 28
+text = "让我看看档案......"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
 default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)

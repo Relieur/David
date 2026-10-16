@@ -10,6 +10,11 @@ class_name Robot
 const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
 @export var deposit_range: float = 150.0     # 卸货判定距离：炉体碰撞半宽 120 + 机器人半径 22 + 余量，停在炉体外圈即卸货
 
+# 挖到矿时头顶的「+1」浮动字
+const FLOATING_TEXT_SCENE: PackedScene = preload("res://scene/floating_text.tscn")
+const MINE_FLOATER_COLOR := Color(0.45, 0.95, 0.42, 1.0)   # 绿色：采到矿物
+const MINE_FLOATER_OFFSET_Y := -52.0                        # 浮在机器人头顶
+
 # ==================== 节点引用 ====================
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
 
@@ -32,7 +37,7 @@ var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫
 func _ready() -> void:
 	input_pickable = true
 	add_to_group("robots")
-	collision_mask = 0                    # 机器人与彼此不硬碰撞，靠软分离避免重叠/挤住
+	collision_mask = 2                    # 只碰撞炉子 SolidBody（layer 2），不与彼此硬碰撞，靠软分离避免重叠/挤住
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 	if not mouse_entered.is_connected(_on_mouse_entered):
@@ -415,6 +420,7 @@ func _start_mining() -> void:
 			break
 		if ore.mine():
 			_carry_count += 1
+			_spawn_mine_floater()
 			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
 
 	if is_instance_valid(ore):
@@ -435,6 +441,18 @@ func _start_mining() -> void:
 		_enter_returning()
 	else:
 		_state = State.IDLE
+
+
+# 挖到矿时在头顶弹出绿色「+1」（挂到场景根，用世界坐标，不随机器人一起消失）
+func _spawn_mine_floater() -> void:
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var ft := FLOATING_TEXT_SCENE.instantiate() as FloatingText
+	if ft == null:
+		return
+	scene_root.add_child(ft)
+	ft.setup("+1", MINE_FLOATER_COLOR, global_position + Vector2(0.0, MINE_FLOATER_OFFSET_Y))
 
 
 # ==================== 卸货 ====================

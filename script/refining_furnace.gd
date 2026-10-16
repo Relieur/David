@@ -13,6 +13,7 @@ const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 
 const FLOATER_DURATION := 0.9         # 「+N」浮动文字的存在时长（秒）
 const FLOATER_RISE := 42.0            # 「+N」浮动文字的上升距离（像素）
+const FLOATER_COLOR := Color(0.40, 0.78, 1.0, 1.0)  # 「+N」字色：蓝色（与机器人采矿的绿色 +1 区分）
 
 # 炉体外观：默认待机 / 燃烧中
 const SPRITE_IDLE := preload("res://art/Inventory_Idle.png")
@@ -116,12 +117,25 @@ func set_active(active: bool) -> void:
 # 点击精炼炉：若已选中机器人，则手动指挥它前往并卸货到本炉；否则给炉子鼓风加温
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# 机器人优先级更高：点在机器人身上时让给机器人选中，本次不鼓风 / 不命令返回
+		if Robot.is_point_over_robot(get_global_mouse_position()):
+			return
 		get_viewport().set_input_as_handled()
 		var robot = GameManager.selected_robot
 		if robot != null and is_instance_valid(robot) and robot.has_method("command_return"):
 			robot.command_return(self)
+		elif GameManager.is_tech_unlocked("sync_fan"):
+			_fan_all()
 		else:
 			_fan()
+
+
+# 同步鼓风：解锁「同步鼓风」后，点击一个炉子给所有已启用的炉子一起鼓风。
+# 遍历 group "furnace"（已停用的炉子已退出分组，天然只作用于启用中的炉子）。
+func _fan_all() -> void:
+	for f in get_tree().get_nodes_in_group("furnace"):
+		if f is RefiningFurnace:
+			f._fan()
 
 
 # ==================== 炉温 ====================
@@ -213,7 +227,11 @@ func _process(delta: float) -> void:
 	_set_burning(burning)
 	if _ore_stock > 0:
 		# 炉温只在燃烧时下降（空炉不惩罚），并同步火焰表现
+		var prev_heat := _heat
 		_heat = maxf(0.0, _heat - _get_heat_decay() * delta)
+		# 炉温首次降到 0 的瞬间：发出信号（供剧情引导「记得鼓风」等监听）
+		if prev_heat > 0.0 and _heat <= 0.0:
+			GameManager.furnace_heat_empty.emit(self)
 		_apply_heat_visual()
 		var interval := _get_smelt_interval()
 		# 炉温直接放大烧制进度：温度高=烧得快
@@ -368,15 +386,15 @@ func _draw() -> void:
 		var t: float = float(f["elapsed"]) / FLOATER_DURATION
 		var alpha: float = clampf(1.0 - t, 0.0, 1.0)
 		var pos := Vector2(float(f["offset_x"]), bar_y - 6.0 - t * FLOATER_RISE + float(f["offset_y"]))
-		var w := 120.0
+		var w := 140.0
 		draw_string(
 			font,
 			pos + Vector2(-w * 0.5, 0.0),
 			String(f["text"]),
 			HORIZONTAL_ALIGNMENT_CENTER,
 			w,
-			36,
-			Color(0.95, 0.25, 0.25, alpha)
+			48,
+			Color(FLOATER_COLOR.r, FLOATER_COLOR.g, FLOATER_COLOR.b, alpha)
 		)
 
 

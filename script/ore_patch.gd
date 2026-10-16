@@ -14,7 +14,7 @@ const MINE_SPARK_SCENE: PackedScene = preload("res://scene/mine_spark.tscn")
 const BASE_INTERACT_TIME := 4        # 耐久正常时：每 4 次交互掉落 1 个矿物
 const LOW_DUR_INTERACT_TIME := 5     # 耐久 <= 15% 时：每 5 次交互掉落 1 个矿物
 const LOW_DURABILITY_THRESHOLD := 15.0
-const DURABILITY_PER_DROP := 5.0     # 每掉落 1 个矿物，耐久下降 5%
+const DURABILITY_PER_DROP := 7.0    # 每掉落 1 个矿物，耐久下降 10%
 
 const GRID_SIZE := 64                # 每个矿石格子的尺寸
 
@@ -29,6 +29,7 @@ var _visual_ratio: float = -1.0      # 上次刷新视觉时的耐久比例（�
 
 
 func _ready() -> void:
+	add_to_group("ore_patch")
 	_collect_ores()
 	durability = _get_max_durability()
 	_update_visual()

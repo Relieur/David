@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://brtu8122h6bbc" path="res://art/UI/UI_RightText_BG.png" id="7_hud"]
 [ext_resource type="Texture2D" uid="uid://dneogqdi8gec0" path="res://art/UI/UI_HUD_ProgressBar_Frame.png" id="8_pb"]
 [ext_resource type="Texture2D" uid="uid://dp4rgbco7itty" path="res://art/UI/UI_HUD_ProgressBar_Fill.png" id="9_pb"]
+[ext_resource type="Texture2D" path="res://art/UI/UI_Dialogue_BG.png" id="10_dlg"]
 
 [sub_resource type="Gradient" id="Grad_fade"]
 colors = PackedColorArray(0, 0, 0, 0.55, 0, 0, 0, 0)
@@ -82,6 +83,34 @@ mouse_filter = 2
 texture = SubResource("GradTex_fade")
 expand_mode = 1
 
+[node name="SustainHint" type="TextureRect" parent="." unique_id=135724680]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -580.5
+offset_top = 110.0
+offset_right = 580.5
+offset_bottom = 272.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = ExtResource("10_dlg")
+expand_mode = 1
+
+[node name="Label" type="Label" parent="SustainHint" unique_id=246813579]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
+theme_override_font_sizes/font_size = 28
+text = "可持续发展：留点时间让矿点恢复"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="TopBar" type="TextureRect" parent="." unique_id=852408701]
 layout_mode = 1
 anchors_preset = 10
@@ -145,7 +174,7 @@ offset_top = -5.0
 offset_right = -20.0
 offset_bottom = 49.0
 grow_horizontal = 2
-theme_override_colors/font_color = Color(0.105882, 0.129412, 0.043137, 1)
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
 theme_override_font_sizes/font_size = 23
 text = "研究所目标"
 horizontal_alignment = 1
@@ -162,7 +191,7 @@ offset_right = -21.0
 offset_bottom = -23.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
 theme_override_constants/line_spacing = 10
 theme_override_font_sizes/font_size = 22
 text = "当前阶段：阶段0"

@@ -17,10 +17,22 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 @onready var _stage_progress: TextureProgressBar = $StageProgress/Fill
 @onready var _gear_button: TextureButton = $GearButton
 @onready var _hide_ui_button: Button = $HideUIButton
+@onready var _sustain_hint: TextureRect = $SustainHint
+@onready var _sustain_hint_label: Label = $SustainHint/Label
 
 var _res_cache: Dictionary = {}    # item_type -> 上次显示的数值
 var _gear_tween: Tween
 var _ui_hidden: bool = false
+
+# ==================== 可持续提示 ====================
+const SUSTAIN_DURABILITY_THRESHOLD := 0.30   # 耐久低于 30% 触发
+const SUSTAIN_FADE_TIME := 1.0               # 淡入 / 淡出各耗时（秒）
+const SUSTAIN_HOLD_TIME := 2.0               # 中间保持时长（秒）
+const SUSTAIN_TOTAL_TIME := SUSTAIN_FADE_TIME * 2.0 + SUSTAIN_HOLD_TIME  # 效果总时长 4 秒
+const SUSTAIN_COOLDOWN := 60.0               # 两次提示的最小间隔（秒）
+var _sustain_hint_timer: float = 0.0         # 当前提示已显示时长（>0 表示正在显示）
+var _sustain_cooldown: float = 0.0           # 冷却剩余时间
+var _sustain_tween: Tween                    # 渐入渐出动画
 
 # 隐藏/显示 UI 时一起切换的 HUD 元素（不含 HideUIButton 本身）
 var _hud_elements: Array[CanvasItem] = []
@@ -109,7 +121,7 @@ func _get_display_name(item_type: String) -> String:
 	return ITEM_NAMES.get(item_type, item_type)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# 炉内铜矿没有变化信号，靠每帧轮询；数值没变就不重写 text
 	var changed := false
 	for item_type in _res_cache:
@@ -120,6 +132,7 @@ func _process(_delta: float) -> void:
 		changed = true
 	if changed:
 		_refresh_resources(GameManager.inventory)
+	_tick_sustain_hint(delta)
 
 
 # ==================== 研究所目标面板 ====================
@@ -151,6 +164,82 @@ func _refresh_stage_progress() -> void:
 
 func _stage_name(stage: int) -> String:
 	return "阶段%d" % stage
+
+
+# ==================== 可持续提示 ====================
+# 驱动提示的显示 / 隐藏 / 冷却。触发条件：当前只显示 1 个矿点，且其耐久低于 30%。
+func _tick_sustain_hint(delta: float) -> void:
+	# 正在显示：倒计时，归零后由淡出完成回调隐藏
+	if _sustain_hint_timer > 0.0:
+		_sustain_hint_timer -= delta
+		if _sustain_hint_timer <= 0.0:
+			_sustain_hint_timer = 0.0
+		return
+	# 冷却中：倒计时
+	if _sustain_cooldown > 0.0:
+		_sustain_cooldown -= delta
+		return
+	# 冷却结束，检查是否满足触发条件
+	if _should_show_sustain_hint():
+		_show_sustain_hint()
+
+
+# 判断是否满足「只有一个矿点且耐久低于 30%」
+func _should_show_sustain_hint() -> bool:
+	var visible_patches: Array = []
+	for node in get_tree().get_nodes_in_group("ore_patch"):
+		if not is_instance_valid(node) or not node.visible:
+			continue
+		visible_patches.append(node)
+	if visible_patches.size() != 1:
+		return false
+	var patch: Node2D = visible_patches[0]
+	if not patch.has_method("get_durability_ratio"):
+		return false
+	return patch.get_durability_ratio() < SUSTAIN_DURABILITY_THRESHOLD
+
+
+# 显示提示并进入冷却：淡入 → 保持 → 淡出
+func _show_sustain_hint() -> void:
+	_sustain_hint_timer = SUSTAIN_TOTAL_TIME
+	_sustain_cooldown = SUSTAIN_COOLDOWN
+	_play_sustain_fade()
+
+
+# 播放渐入渐出动画（总时长 SUSTAIN_TOTAL_TIME）
+func _play_sustain_fade() -> void:
+	_clear_sustain_tween()
+	_sustain_hint.visible = true
+	_sustain_hint.modulate.a = 0.0
+	_sustain_hint_label.modulate.a = 0.0
+	_sustain_tween = create_tween()
+	# 淡入
+	_sustain_tween.tween_property(_sustain_hint, "modulate:a", 1.0, SUSTAIN_FADE_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_sustain_tween.parallel().tween_property(_sustain_hint_label, "modulate:a", 1.0, SUSTAIN_FADE_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# 保持
+	_sustain_tween.tween_interval(SUSTAIN_HOLD_TIME)
+	# 淡出
+	_sustain_tween.tween_property(_sustain_hint, "modulate:a", 0.0, SUSTAIN_FADE_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_sustain_tween.parallel().tween_property(_sustain_hint_label, "modulate:a", 0.0, SUSTAIN_FADE_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_sustain_tween.finished.connect(_on_sustain_fade_finished)
+
+
+# 淡出结束后隐藏节点并复位透明度
+func _on_sustain_fade_finished() -> void:
+	_clear_sustain_tween()
+	_sustain_hint.visible = false
+	_sustain_hint.modulate.a = 1.0
+	_sustain_hint_label.modulate.a = 1.0
+
+
+func _clear_sustain_tween() -> void:
+	if _sustain_tween != null:
+		_sustain_tween.kill()
+		_sustain_tween = null
 
 
 func _format_cost(cost: Dictionary) -> String:
