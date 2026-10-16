@@ -39,6 +39,7 @@ var _lines: PackedStringArray = []  # 当前要播放的文案组
 var _index: int = 0                 # 当前播放到的句子下标
 var _playing: bool = false          # 是否正在播放（尚未淡出）
 var _fade_tween: Tween
+var _pending: Array = []            # 待播队列：当前提示框播放期间触发的提示框先排队，等当前结束再依次播放
 
 # 状态：开场剧情是否已播放完；五锭引导是否已触发
 var _intro_done: bool = false
@@ -65,8 +66,13 @@ func play(lines: PackedStringArray) -> void:
 	if lines.is_empty():
 		return
 	if _playing:
-		# 已有文案在播：直接覆盖为新的（旧的立即结束，不留残留）
-		_clear_tween()
+		# 已有文案在播：不抢占，加入待播队列，等当前提示框完全结束后再依次播放
+		_pending.append(lines)
+		return
+	_start(lines)
+
+
+func _start(lines: PackedStringArray) -> void:
 	_lines = lines
 	_index = 0
 	_playing = true
@@ -155,7 +161,12 @@ func _fade_out() -> void:
 func _on_fade_out_finished() -> void:
 	_clear_tween()
 	_release()
-	# 淡出完成后补一次五锭检查（覆盖「开场期间就烧够 5 个」的漏触发）
+	# 有排队中的提示框：等当前消失后按序播放下一个
+	if not _pending.is_empty():
+		var next_lines: PackedStringArray = _pending.pop_front()
+		_start(next_lines)
+		return
+	# 队列空：补一次五锭检查（覆盖「开场期间就烧够 5 个」的漏触发）
 	_check_five_ingot()
 
 

@@ -36,4 +36,4 @@ position = Vector2(-64, 128)
 position = Vector2(0, 192)
 
 [node name="Ore10" parent="." unique_id=1026752932 instance=ExtResource("1_ore")]
-position = Vector2(56, 128)
+position = Vector2(64, 128)

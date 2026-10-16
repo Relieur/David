@@ -8,7 +8,8 @@ class_name Robot
 @export var carry_capacity: int = 1          # 携带上限
 
 const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
-@export var deposit_range: float = 150.0     # 卸货判定距离：炉体碰撞半宽 120 + 机器人半径 22 + 余量，停在炉体外圈即卸货
+@export var deposit_range: float = 200.0     # 卸货判定距离：需大于炉体硬碰撞体(SolidBody 240×240，对角半宽约170+机器人半径22)，
+											 # 否则机器人直线冲炉被硬碰撞挡住，永远到不了卸货点卡在炉前
 
 # 挖到矿时头顶的「+1」浮动字
 const FLOATING_TEXT_SCENE: PackedScene = preload("res://scene/floating_text.tscn")
@@ -282,7 +283,7 @@ func _tick_idle(delta: float) -> void:
 # ==================== 绕炉避障 ====================
 # 朝炉子走且进入 FURNACE_AVOID_DIST 时，按距离混入切线方向，绕弧通过而不是贴墙滑行。
 const FURNACE_WALL_DIST := 175.0    # 绕行时与炉心保持的最近距离（碰撞半宽 120 + 机器人半径 22 + 余量）
-const FURNACE_AVOID_DIST := 330.0   # 进入这个距离就开始绕
+const FURNACE_AVOID_DIST := 230.0   # 进入这个距离就开始绕（原 330 过大，绕行弧太长，回仓库卸货走冤枉路）
 
 # skip 传目标炉子本身：回程卸货需要径直靠近它，不绕
 func _apply_furnace_avoidance(dir: Vector2, skip: Node2D = null) -> Vector2:
@@ -321,8 +322,10 @@ func _tick_moving() -> void:
 		return
 
 	var dir := (_target_ore.global_position - global_position).normalized()
-	if dist > FURNACE_AVOID_DIST:
-		dir = _apply_furnace_avoidance(dir)  # 快到矿点时不再绕，保证最终能贴到矿上
+	# 始终绕炉避障（函数内部按到炉子的距离自行决定是否绕）。
+	# 之前用「到矿点的距离」判断是否绕行是错的：矿点紧贴炉子时提前关闭避障，
+	# 机器人直线冲矿被炉体硬碰撞挡住，卡在炉前无法前进。
+	dir = _apply_furnace_avoidance(dir)
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 

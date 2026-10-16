@@ -562,7 +562,7 @@ func _fill_desc(tid: String) -> void:
 	var cost := GameManager.get_tech_cost(tid)
 	var parts: PackedStringArray = []
 	for item_type in cost:
-		parts.append("%d %s" % [int(cost[item_type]), _item_name(String(item_type))])
+		parts.append("%d" % int(cost[item_type]))
 	_desc_cost.text = " / ".join(parts)
 	_desc_text.text = _tech_status_text(tid)
 	var can: bool = GameManager.can_unlock_tech(tid)
