@@ -85,8 +85,30 @@ func _apply_restore() -> void:
 	while _count_robots() < robots_target:
 		if not _spawn_robot():
 			break
+	# 机器人记忆的矿区：按生成顺序逐个还原
+	_restore_robot_memory()
 	GameManager.clear_restore_mode()
 	print("已从存档恢复：机器人 %d / 矿点 %d / 炉子 %d" % [_count_robots(), _reveal_index, _reveal_furnace_index])
+
+
+# 按存档顺序给机器人还原已记忆的矿区（存档存的是节点名，这里按名字找回 OrePatch）
+func _restore_robot_memory() -> void:
+	var memories: Array = GameManager.get_restore_robot_memory()
+	if memories.is_empty():
+		return
+	var idx := 0
+	for child in robot_container.get_children():
+		if not child is Robot:
+			continue
+		if idx >= memories.size():
+			break
+		var patches: Array = []
+		for patch_name in memories[idx]:
+			var node := get_node_or_null(NodePath(String(patch_name)))
+			if node != null and node is OrePatch:
+				patches.append(node)
+		(child as Robot).inherit_patches(patches)
+		idx += 1
 
 
 # 每 60 秒自动保存；窗口关闭（退出游戏）时也保存一次
@@ -177,7 +199,17 @@ func _spawn_robot() -> bool:
 	robot.global_position = furnace.global_position + offset
 	robot_container.add_child(robot)
 	_inherit_patches(robot)
+	# 第一个机器人出现时，在上方提示框提示如何指挥机器人挖矿
+	if _count_robots() == 1:
+		_show_first_robot_hint()
 	return true
+
+
+# 上方提示框是队列播放，不会与其它提示互相抵消
+func _show_first_robot_hint() -> void:
+	var hud := get_node_or_null("UILayer/HudUI")
+	if hud != null and hud.has_method("show_hint"):
+		hud.show_hint("选中机器人再点击矿可以让机器人自动挖矿，右键取消选中")
 
 
 # 汇总场上所有机器人已记忆的矿区（去重、过滤失效节点）

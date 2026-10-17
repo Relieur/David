@@ -93,6 +93,8 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 		var robot = GameManager.selected_robot
 		if robot != null and is_instance_valid(robot) and robot.has_method("command_return"):
 			robot.command_return(self)
+			# 已经指定目的地，自动取消选中
+			GameManager.deselect_robot()
 		elif GameManager.is_tech_unlocked("sync_fan"):
 			_fan_all()
 		else:

@@ -552,6 +552,7 @@ const SAVE_PATH := "user://savegame.json"
 # wolrd.gd 的 _ready 检测：为 true 时按存档重建世界（机器人 / 矿点 / 炉子），完成后清除
 var restore_mode: bool = false
 var _restore_robot_count: int = 0        # 恢复时需要生成的机器人数（繁殖产生的机器人也计入）
+var _restore_robot_memory: Array = []    # 恢复时按机器人生成顺序对应的已记忆矿区名（Array[Array[String]]）
 
 
 func has_save() -> bool:
@@ -560,12 +561,20 @@ func has_save() -> bool:
 
 # 保存当前进度（JSON）。退出游戏 / 自动保存时由 wolrd.gd 调用。
 func save_game() -> void:
+	# 每个机器人已记忆的矿区（按名字存，恢复时按名字找回节点）
+	var robot_memory: Array = []
+	for robot in get_tree().get_nodes_in_group("robots"):
+		if robot.has_method("get_known_patch_names"):
+			robot_memory.append(robot.get_known_patch_names())
+		else:
+			robot_memory.append([])
 	var data := {
 		"version": 1,
 		"inventory": inventory,
 		"tech_levels": tech_levels,
 		"lab_stage": lab_stage,
 		"robot_count": get_tree().get_nodes_in_group("robots").size(),
+		"robot_memory": robot_memory,
 		"ambient_volume": _ambient_volume,
 		"sfx_volume": _sfx_volume,
 		"master_volume": _master_volume,
@@ -601,6 +610,14 @@ func load_game() -> bool:
 	tech_levels = tl
 	lab_stage = int(parsed.get("lab_stage", 0))
 	_restore_robot_count = int(parsed.get("robot_count", 0))
+	# 机器人记忆的矿区名：保持「第 i 个机器人对应第 i 项」的顺序
+	_restore_robot_memory = []
+	for arr in parsed.get("robot_memory", []):
+		var names: Array = []
+		if arr is Array:
+			for n in arr:
+				names.append(String(n))
+		_restore_robot_memory.append(names)
 	set_ambient_volume(float(parsed.get("ambient_volume", 1.0)))
 	set_sfx_volume(float(parsed.get("sfx_volume", 1.0)))
 	set_master_volume(float(parsed.get("master_volume", 1.0)))
@@ -611,6 +628,10 @@ func load_game() -> bool:
 
 func get_restore_robot_count() -> int:
 	return _restore_robot_count
+
+
+func get_restore_robot_memory() -> Array:
+	return _restore_robot_memory
 
 
 func clear_restore_mode() -> void:
@@ -629,4 +650,5 @@ func reset_progress() -> void:
 	_tech_max_level_overrides = {}
 	lab_stage = 0
 	_restore_robot_count = 0
+	_restore_robot_memory = []
 	restore_mode = false

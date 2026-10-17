@@ -99,6 +99,7 @@ var _desc_title: Label
 var _desc_cost: Label
 var _desc_text: Label
 var _desc_btn: TextureButton
+var _desc_btn_glow: Panel          # 升级按钮的悬停高亮边框（纯描边，覆盖在按钮上）
 var _desc_owner: Control = null   # 介绍框当前依附的节点
 
 var _lab_cells: Array = []          # 6 个阶段格（阶段0~5），每格 {style, status, btn}
@@ -322,6 +323,23 @@ func _build_desc_panel() -> void:
 	_desc_btn.pivot_offset = _desc_btn.size * 0.5
 	_desc_btn.pressed.connect(_on_tech_upgrade_pressed)
 	_desc_root.add_child(_desc_btn)
+
+	# 悬停高亮边框：叠在按钮正上方的一层纯描边 Panel（不拦截鼠标）
+	_desc_btn_glow = Panel.new()
+	_desc_btn_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_desc_btn_glow.position = _desc_btn.position
+	_desc_btn_glow.size = _desc_btn.size
+	var glow_style := StyleBoxFlat.new()
+	glow_style.bg_color = Color(0, 0, 0, 0)
+	glow_style.draw_center = false
+	glow_style.border_color = Color(0.85, 1.0, 0.35, 1.0)
+	glow_style.set_border_width_all(3)
+	glow_style.set_corner_radius_all(4)
+	_desc_btn_glow.add_theme_stylebox_override("panel", glow_style)
+	_desc_btn_glow.visible = false
+	_desc_root.add_child(_desc_btn_glow)
+	_desc_btn.mouse_entered.connect(func() -> void: _desc_btn_glow.visible = true)
+	_desc_btn.mouse_exited.connect(func() -> void: _desc_btn_glow.visible = false)
 
 
 func _build_lab_panel() -> void:
@@ -615,6 +633,8 @@ func _fill_desc(tid: String) -> void:
 	_desc_text.text = _tech_status_text(tid)
 	var can: bool = GameManager.can_unlock_tech(tid)
 	_desc_btn.modulate = Color.WHITE if can else Color(0.45, 0.45, 0.45)
+	# 切换到另一个科技时复位高亮，避免鼠标未移动却残留边框
+	_desc_btn_glow.visible = false
 
 
 # 描述 + 当前不可购买的原因（与 GameManager.can_unlock_tech 判定一致）

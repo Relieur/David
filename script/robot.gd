@@ -512,6 +512,15 @@ func inherit_patches(patches: Array) -> void:
 		_remember_patch(patch, false)
 
 
+# 存档用：已记忆矿区的节点名（恢复时按名字找回对应 OrePatch）
+func get_known_patch_names() -> Array:
+	var names: Array = []
+	_cleanup_known_patches()
+	for p in known_patches:
+		names.append(String(p.name))
+	return names
+
+
 # 是否解锁「信息交流能力」科技
 func _has_info_share() -> bool:
 	return GameManager.is_tech_unlocked("info_share")

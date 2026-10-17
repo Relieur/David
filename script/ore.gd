@@ -37,6 +37,8 @@ func _on_input_event(_viewport, event, _shape_idx):
 		var robot = GameManager.selected_robot
 		if robot != null and is_instance_valid(robot) and robot.has_method("set_mine_target"):
 			robot.set_mine_target(self)
+			# 已经指定目的地，自动取消选中，避免下一次点矿仍派给同一机器人
+			GameManager.deselect_robot()
 		else:
 			player_mine()
 
