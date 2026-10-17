@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://script/player_cursor.gd" id="1_pc"]
+[ext_resource type="Texture2D" uid="uid://bhkkdatiivbv0" path="res://art/robot/drill/drill.png" id="2_drill"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.07, 0.07, 0.07, 0.75)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0, 0, 0, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
+bg_color = Color(0.678431, 0.819608, 0.309804, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="PlayerCursor" type="CanvasLayer"]
+layer = 0
+script = ExtResource("1_pc")
+
+[node name="Drill" type="Sprite2D" parent="."]
+z_index = 100
+texture = ExtResource("2_drill")
+
+[node name="CooldownBar" type="ProgressBar" parent="."]
+z_index = 101
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_fill")
+max_value = 1.0
+step = 0.01
+show_percentage = false

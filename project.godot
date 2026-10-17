@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="GameJame"
-run/main_scene="uid://c1p7kh5rtr5uk"
+config/name="异星拓荒"
+run/main_scene="uid://cdhm0hwk0h5rk"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
@@ -22,6 +22,7 @@ GameManager="*uid://csjscxthnlohf"
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
+window/size/mode=3
 window/size/window_width_override=1920
 window/size/window_height_override=1080
 window/stretch/mode="canvas_items"

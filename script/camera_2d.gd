@@ -46,7 +46,11 @@ func _process(delta: float) -> void:
 	if _flying:
 		return
 
-	# 中键拖动地图：优先处理，跳过键盘移动
+	# 科技树（研究所）面板打开：完全屏蔽（键盘移动 + 中键拖动都锁）
+	if GameManager.lab_open:
+		return
+
+	# 中键拖动地图：优先处理，跳过键盘移动（剧情播放时仍允许拖动）
 	if _is_panning:
 		var mouse_screen := get_viewport().get_mouse_position()
 		var delta_screen := mouse_screen - _pan_last_screen
@@ -56,6 +60,10 @@ func _process(delta: float) -> void:
 		_target_position -= delta_world
 		_clamp_target()
 		position = _target_position
+		return
+
+	# 剧情播放时：屏蔽键盘移动（不暂停游戏，仅锁 WASD 操作）
+	if GameManager.intro_playing:
 		return
 
 	var dir :=Vector2.ZERO
@@ -102,6 +110,8 @@ func set_target(pos: Vector2) -> void:
 	_target_position = pos
 	_home_position=pos
 func _input(event: InputEvent) -> void:
+	if GameManager.lab_open or GameManager.intro_playing:
+		return  # 科技树打开 / 剧情播放时屏蔽空格回位
 	if event is InputEventKey and event.keycode==KEY_SPACE and event.pressed and not event.echo:
 		_target_position=_home_position
 

@@ -10,21 +10,35 @@ const FLY_SPEED := 700.0    # 飞回仓库的速度（像素/秒）
 const FLY_DURATION_MIN := 0.25  # 最短飞行时间（秒），避免近距离瞬移
 const FLY_DURATION_MAX := 1.2   # 最长飞行时间（秒）
 
+# 飞行拖尾特效（黄 → 蓝绿），与掉落物同级，飞行时跟随、到达后自动回收
+const FLY_TRAIL_SCENE: PackedScene = preload("res://scene/fly_trail.tscn")
+
 var _deposited: bool = false
 var _target_furnace: Node2D = null   # 本次飞行的目标炉子（到达后投给它，而不是重新找）
+var _trail: Node2D = null            # 飞行时的拖尾节点
 
 
 func _ready() -> void:
 	add_to_group("dropped_items")
 	input_pickable = true
 	z_index = 50
+	set_process(false)      # 只在飞行期间需要每帧驱动拖尾
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
+
+
+# 飞行中：让拖尾跟着自己走
+func _process(_delta: float) -> void:
+	if _trail != null and is_instance_valid(_trail) and _trail.has_method("follow"):
+		_trail.follow(global_position)
 
 
 # 点击掉落物：自动飞回仓库并卸货
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		# 机器人优先级更高：点在机器人身上时让给机器人选中，本次不作回收
+		if Robot.is_point_over_robot(get_global_mouse_position()):
+			return
 		# 掉落物优先响应：吞掉本次输入，避免底下的矿点误触发挖矿
 		get_viewport().set_input_as_handled()
 		_fly_home()
@@ -58,6 +72,9 @@ func _fly_home() -> void:
 	var target: Vector2 = furnace.global_position
 	var dist := global_position.distance_to(target)
 	var duration := clampf(dist / FLY_SPEED, FLY_DURATION_MIN, FLY_DURATION_MAX)
+	# 起飞：生成拖尾，颗粒朝飞行反方向喷出
+	_spawn_fly_trail((target - global_position).normalized())
+	set_process(true)
 	var tween := create_tween()
 	# 位移：正弦缓动，起止速度都为 0，最平滑
 	tween.tween_property(self, "global_position", target, duration) \
@@ -71,10 +88,38 @@ func _fly_home() -> void:
 	tween.tween_callback(_deposit)
 
 
+# 生成飞行拖尾：挂在掉落物的父节点下（同级），避免被飞行缩放动画影响
+func _spawn_fly_trail(dir: Vector2) -> void:
+	var container := get_parent()
+	if container == null:
+		container = get_tree().current_scene
+	if container == null:
+		return
+	_trail = FLY_TRAIL_SCENE.instantiate() as Node2D
+	container.add_child(_trail)
+	_trail.global_position = global_position
+	if _trail.has_method("start"):
+		_trail.start(dir)
+
+
+# 结束拖尾（停止喷射，剩余颗粒飞完自动回收）
+func _finish_fly_trail() -> void:
+	if _trail != null and is_instance_valid(_trail):
+		if _trail.has_method("finish"):
+			_trail.finish()
+		_trail = null
+
+
 func _deposit() -> void:
 	if _deposited:
 		return
 	_deposited = true
 	if _target_furnace != null and is_instance_valid(_target_furnace) and _target_furnace.has_method("deposit_ore"):
 		_target_furnace.deposit_ore(amount)
+	_finish_fly_trail()
 	queue_free()
+
+
+# 兜底：掉落物因任何原因提前移除时，拖尾也要收尾
+func _exit_tree() -> void:
+	_finish_fly_trail()

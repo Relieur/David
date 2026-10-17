@@ -13,6 +13,9 @@
 [ext_resource type="PackedScene" uid="uid://2tpybtqed4se" path="res://scene/robot_popup.tscn" id="12_popup"]
 [ext_resource type="PackedScene" uid="uid://cfyqb0bl66ld6" path="res://scene/ore_patch_line.tscn" id="13_pqfde"]
 [ext_resource type="PackedScene" uid="uid://bbkncruibrt5i" path="res://scene/hud_ui.tscn" id="14_hud"]
+[ext_resource type="PackedScene" path="res://scene/player_cursor.tscn" id="15_pc"]
+[ext_resource type="Script" uid="uid://ctpefdfq4r38u" path="res://script/intro_dialogue.gd" id="16_intro"]
+[ext_resource type="Texture2D" uid="uid://cr4ke6yy05gyp" path="res://art/UI/UI_Dialogue_BG.png" id="17_dlg"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j0btk"]
 texture = ExtResource("3_whfxa")
@@ -61,55 +64,6 @@ z_index = 1
 [node name="Furnace" parent="RobotContainer" unique_id=1240451256 instance=ExtResource("4_bs68n")]
 position = Vector2(4320, 1568)
 
-[node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
-
-[node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
-zoom = Vector2(0.2, 0.2)
-script = ExtResource("4_whfxa")
-
-[node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
-
-[node name="HudUI" parent="UILayer" unique_id=424611351 instance=ExtResource("14_hud")]
-
-[node name="ResearchLabUI" parent="UILayer" unique_id=277934063 instance=ExtResource("9_labui")]
-
-[node name="RobotPopup" parent="UILayer" unique_id=1172523525 instance=ExtResource("12_popup")]
-
-[node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
-default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
-
-[node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
-position = Vector2(4720, 2616)
-
-[node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
-position = Vector2(1312, 1056)
-
-[node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
-position = Vector2(6944, 1184)
-
-[node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
-position = Vector2(2016, 3616)
-
-[node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
-position = Vector2(7136, 3808)
-
-[node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
-position = Vector2(3560, 1192)
-
-[node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
-position = Vector2(5168, 3584)
-rotation = -6.2831855
-
-[node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
-position = Vector2(1264, 2272)
-
-[node name="OrePatch9" parent="." unique_id=-1960410518 instance=ExtResource("9_p4qsy")]
-position = Vector2(6736, 2720)
-rotation = -6.2831855
-
-[node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
-position = Vector2(5536, 1248)
-
 [node name="Furnace2" parent="RobotContainer" unique_id=218107102 instance=ExtResource("4_bs68n")]
 position = Vector2(6240, 3104)
 
@@ -124,3 +78,91 @@ position = Vector2(2144, 1568)
 
 [node name="Furnace6" parent="RobotContainer" unique_id=1735613891 instance=ExtResource("4_bs68n")]
 position = Vector2(6240, 1568)
+
+[node name="DropContainer" type="Node2D" parent="." unique_id=1584696267]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1503051318]
+zoom = Vector2(0.2, 0.2)
+script = ExtResource("4_whfxa")
+
+[node name="UILayer" type="CanvasLayer" parent="." unique_id=107940199]
+
+[node name="HudUI" parent="UILayer" unique_id=424611351 instance=ExtResource("14_hud")]
+
+[node name="ResearchLabUI" parent="UILayer" unique_id=277934063 instance=ExtResource("9_labui")]
+
+[node name="RobotPopup" parent="UILayer" unique_id=1172523525 instance=ExtResource("12_popup")]
+
+[node name="IntroDialogue" type="Control" parent="UILayer" unique_id=200001001]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("16_intro")
+
+[node name="BG" type="TextureRect" parent="UILayer/IntroDialogue" unique_id=200001002]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -580.5
+offset_top = 110.0
+offset_right = 580.5
+offset_bottom = 272.0
+grow_horizontal = 2
+mouse_filter = 2
+texture = ExtResource("17_dlg")
+expand_mode = 1
+
+[node name="Label" type="Label" parent="UILayer/IntroDialogue/BG" unique_id=200001003]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
+theme_override_font_sizes/font_size = 28
+text = "让我看看档案......"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
+default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
+
+[node name="PlayerCursor" parent="." unique_id=154724218 instance=ExtResource("15_pc")]
+
+[node name="OrePatch" parent="." unique_id=1976213361 instance=ExtResource("9_p4qsy")]
+position = Vector2(4704, 2592)
+
+[node name="OrePatch2" parent="." unique_id=1635615298 instance=ExtResource("11_pqfde")]
+position = Vector2(3744, 1248)
+
+[node name="OrePatch3" parent="." unique_id=570120910 instance=ExtResource("11_cglsi")]
+position = Vector2(5280, 1376)
+
+[node name="OrePatch4" parent="." unique_id=1310316945 instance=ExtResource("11_pqfde")]
+position = Vector2(3936, 3552)
+
+[node name="OrePatch5" parent="." unique_id=1601747795 instance=ExtResource("11_pqfde")]
+position = Vector2(5152, 3744)
+
+[node name="OrePatch6" parent="." unique_id=1718314558 instance=ExtResource("11_pqfde")]
+position = Vector2(6752, 3552)
+
+[node name="OrePatch7" parent="." unique_id=1999529889 instance=ExtResource("9_p4qsy")]
+position = Vector2(7008, 2592)
+rotation = -6.2831855
+
+[node name="OrePatch8" parent="." unique_id=420265392 instance=ExtResource("13_pqfde")]
+position = Vector2(1312, 2272)
+
+[node name="OrePatch9" parent="." unique_id=-1960410518 instance=ExtResource("9_p4qsy")]
+position = Vector2(2032, 3632)
+rotation = -6.2831855
+
+[node name="OrePatch10" parent="." unique_id=-849299407 instance=ExtResource("11_cglsi")]
+position = Vector2(1760, 1248)

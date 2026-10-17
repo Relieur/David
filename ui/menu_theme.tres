@@ -1,0 +1,132 @@
+[gd_resource type="Theme" format=3 uid="uid://vx13f4ala1me"]
+
+[ext_resource type="Texture2D" uid="uid://s4ld67obuqej" path="res://art/UI/slider_thumb.png" id="1_thumb"]
+
+[sub_resource type="StyleBoxFlat" id="SBF_btn_normal"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+bg_color = Color(0.968627, 0.984314, 0.917647, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.705882, 0.847059, 0.235294, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="SBF_btn_hover"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+bg_color = Color(0.705882, 0.847059, 0.235294, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.611765, 0.768627, 0.133333, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0.180392, 0.227451, 0.117647, 0.32)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="SBF_btn_pressed"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+bg_color = Color(0.611765, 0.768627, 0.133333, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.611765, 0.768627, 0.133333, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxLine" id="SBL_sep"]
+color = Color(0.909804, 0.933333, 0.862745, 1)
+
+[sub_resource type="StyleBoxEmpty" id="SBE_grabber"]
+
+[sub_resource type="StyleBoxFlat" id="SBF_slider_track"]
+content_margin_top = 6.0
+bg_color = Color(0.933333, 0.964706, 0.862745, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="SBF_modal"]
+content_margin_left = 36.0
+content_margin_top = 36.0
+content_margin_right = 36.0
+content_margin_bottom = 36.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.705882, 0.847059, 0.235294, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0.180392, 0.227451, 0.117647, 0.35)
+shadow_size = 24
+
+[sub_resource type="StyleBoxFlat" id="SBF_close"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.933333, 0.964706, 0.862745, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="SBF_close_hover"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.878431, 0.921569, 0.784314, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[resource]
+default_font_size = 18
+Button/colors/font_color = Color(0.180392, 0.227451, 0.117647, 1)
+Button/colors/font_disabled_color = Color(0.419608, 0.458824, 0.329412, 1)
+Button/colors/font_hover_color = Color(0.180392, 0.227451, 0.117647, 1)
+Button/colors/font_pressed_color = Color(0.180392, 0.227451, 0.117647, 1)
+Button/constants/h_separation = 12
+Button/font_sizes/font_size = 18
+Button/styles/disabled = SubResource("SBF_btn_normal")
+Button/styles/focus = SubResource("SBF_btn_hover")
+Button/styles/hover = SubResource("SBF_btn_hover")
+Button/styles/normal = SubResource("SBF_btn_normal")
+Button/styles/pressed = SubResource("SBF_btn_pressed")
+HSeparator/styles/separator = SubResource("SBL_sep")
+HSlider/icons/grabber = ExtResource("1_thumb")
+HSlider/icons/grabber_hilite = ExtResource("1_thumb")
+HSlider/styles/grabber_area = SubResource("SBE_grabber")
+HSlider/styles/grabber_area_highlight = SubResource("SBE_grabber")
+HSlider/styles/slider = SubResource("SBF_slider_track")
+PanelContainer/styles/panel = SubResource("SBF_modal")
+TextureButton/styles/disabled = SubResource("SBF_close")
+TextureButton/styles/focus = SubResource("SBF_close_hover")
+TextureButton/styles/hover = SubResource("SBF_close_hover")
+TextureButton/styles/normal = SubResource("SBF_close")
+TextureButton/styles/pressed = SubResource("SBF_close")

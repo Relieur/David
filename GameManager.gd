@@ -5,6 +5,7 @@ signal inventory_changed(inventory: Dictionary)
 signal tech_unlocked(tech_id: String)
 signal robot_selected(robot: Node)              # 新增
 signal ore_memory_shared(patch: Node)           # 机器人间共享记忆的矿区（信息交流能力）
+signal furnace_heat_empty(furnace: Node)        # 精炼炉温度降到 0（供剧情引导等监听）
 
 
 # ==================== 音效 ====================
@@ -41,6 +42,7 @@ var _last_grab_time: int = -1_000_000             # 上次 grab 播放时间（�
 
 var _ambient_volume: float = 1.0                  # 环境音音量（0~1）
 var _sfx_volume: float = 1.0                      # 其他声音音量（0~1，grab/drop/炉火）
+var _master_volume: float = 1.0                   # 总音量（0~1，同时缩放环境音与其他声音）
 
 
 func _ready() -> void:
@@ -48,6 +50,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_player_mine_cooldown(delta)
 	_duck_timer -= delta
 	if _duck_timer <= 0.0:
 		_duck_timer = 0.3
@@ -86,14 +89,27 @@ func _vol_offset_db(vol: float) -> float:
 	return maxf(linear_to_db(vol), SILENT_DB)
 
 
-# 环境音当前目标音量（基础 db + 音量偏移）
+# 环境音当前目标音量（基础 db + 音量偏移 × 总音量）
 func _ambient_target_db() -> float:
-	return _ambient_db + _vol_offset_db(_ambient_volume)
+	return _ambient_db + _vol_offset_db(_ambient_volume * _master_volume)
 
 
 # 其他声音（炉火）当前目标音量
 func _stove_target_db() -> float:
-	return _stove_db + _vol_offset_db(_sfx_volume)
+	return _stove_db + _vol_offset_db(_sfx_volume * _master_volume)
+
+
+# 设置总音量（0~1），同时缩放环境音与其他声音，立即平滑过渡
+func set_master_volume(vol: float) -> void:
+	_master_volume = clampf(vol, 0.0, 1.0)
+	if _ambient_player != null and _ambient_player.playing:
+		_fade_to(_ambient_player, _ambient_target_db(), 0.15)
+	if _stove_player != null and _stove_player.playing:
+		_fade_to(_stove_player, _stove_target_db(), 0.15)
+
+
+func get_master_volume() -> float:
+	return _master_volume
 
 
 # 设置环境音音量（0~1），立即平滑过渡
@@ -171,7 +187,7 @@ func play_sfx(stream: AudioStream) -> void:
 	p.stream = stream
 	p.volume_db = SILENT_DB
 	p.play()
-	_fade_to(p, _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+	_fade_to(p, _vol_offset_db(_sfx_volume * _master_volume), SFX_FADE_IN)
 
 
 # 找一个空闲的一次性播放器，全忙则新建（动态扩容）
@@ -209,6 +225,41 @@ func _get_duck_db() -> float:
 	return minf(DUCK_MAX_DB, float(_mining_count - DUCK_FREE_COUNT) * DUCK_PER_ROBOT_DB)
 
 
+# ==================== 玩家手动挖掘节奏 ====================
+# 间隔总开关：false = 代码保留但不生效（玩家可连续挖，无冷却，与加此功能前一致）
+const PLAYER_MINE_LIMIT_ENABLED := false
+const PLAYER_MINE_INTERVAL := 0.6      # 玩家两次手动挖掘之间的最短间隔（秒），调小=挖得更快
+
+var _player_mine_cooldown: float = 0.0 # 剩余冷却时间，>0 时玩家挖不动
+
+
+# 玩家现在能不能手动挖（冷却结束返回 true）
+func can_player_mine() -> bool:
+	if not PLAYER_MINE_LIMIT_ENABLED:
+		return true
+	return _player_mine_cooldown <= 0.0
+
+
+# 冷却恢复进度：0=刚挖完不可用，1=随时可挖（给光标上方进度条用）
+func get_player_mine_ratio() -> float:
+	if not PLAYER_MINE_LIMIT_ENABLED or PLAYER_MINE_INTERVAL <= 0.0:
+		return 1.0
+	return 1.0 - clampf(_player_mine_cooldown / PLAYER_MINE_INTERVAL, 0.0, 1.0)
+
+
+# 玩家挖完一次，立刻进入冷却
+func start_player_mine_cooldown() -> void:
+	if not PLAYER_MINE_LIMIT_ENABLED:
+		return
+	_player_mine_cooldown = PLAYER_MINE_INTERVAL
+
+
+# 每帧推进冷却
+func _tick_player_mine_cooldown(delta: float) -> void:
+	if _player_mine_cooldown > 0.0:
+		_player_mine_cooldown = maxf(0.0, _player_mine_cooldown - delta)
+
+
 # 在指定世界坐标播放一个 2D 音效（带距离衰减，超出 max_distance 自动静音）
 func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> void:
 	if stream == null:
@@ -219,7 +270,7 @@ func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> v
 	p.volume_db = SILENT_DB
 	p.play()
 	# 基础音量 + 其他声音音量偏移（grab/drop 受「其他声音」滑块控制）
-	_fade_to(p, target_db + _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+	_fade_to(p, target_db + _vol_offset_db(_sfx_volume * _master_volume), SFX_FADE_IN)
 
 
 # 找一个空闲的 2D 播放器，全忙则新建（动态扩容）
@@ -269,13 +320,15 @@ var tech_levels: Dictionary = {}                # 科技等级，替代 unlocked
 var _tech_max_level_overrides: Dictionary = {}  # 运行时改写的科技等级上限（如精炼炉数量取决于场景里预放置的炉子数）
 var selected_robot: Node = null                 # 当前选中的机器人
 var lab_stage: int = 0                          # 研究所阶段（0~5）
+var lab_open: bool = false                      # 科技树（研究所）面板是否打开：打开时屏蔽游戏世界交互（相机移动等）
+var intro_playing: bool = false                 # 开局剧情提示框是否在播放：播放期间屏蔽游戏世界交互
 
 const LAB_STAGE_UPGRADE_COSTS := [              # 研究所升级消耗（铜锭）
-	{"copper_ingot": 100},   # 0→1
-	{"copper_ingot": 400},   # 1→2
-	{"copper_ingot": 800},   # 2→3
-	{"copper_ingot": 1000},  # 3→4
-	{"copper_ingot": 1500},  # 4→5
+	{"copper_ingot": 50},    # 0→1
+	{"copper_ingot": 150},   # 1→2
+	{"copper_ingot": 250},   # 2→3
+	{"copper_ingot": 350},   # 3→4
+	{"copper_ingot": 450},   # 4→5
 ]
 
 # ==================== 科技定义 ====================
@@ -286,37 +339,49 @@ const CATEGORY_ORDER := ["能力升级", "资源点升级", "机器人升级", "
 
 const TECHS := {
 	#能力升级
-	"memory_auto": {"category": "能力升级", "name": "坐标点记忆、自动寻路", "desc": "机器人记忆矿点与仓库，空闲时自动前往", "cost": {"copper_ingot": 5}, "prereq": ["add_robot"], "lab_stage": 1},
-	"fallow": {"category": "能力升级", "name": "休耕意识", "desc": "矿点耐久低于15%时跳过，恢复到80%以上才继续开采", "cost": {"copper_ingot": 20}, "prereq": ["memory_auto", "add_robot"], "lab_stage": 2},
-	"priority_sort": {"category": "能力升级", "name": "优先排序能力", "desc": "机器人优先前往最近的矿点或仓库", "cost": {"copper_ingot": 10}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
-	"density": {"category": "能力升级", "name": "密度感知能力", "desc": "机器人感知周围密度，避免拥堵（占位）", "cost": {"copper_ingot": 20}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
-	"info_share": {"category": "能力升级", "name": "信息交流能力", "desc": "机器人之间共享记忆的坐标点", "cost": {"copper_ingot": 15}, "prereq": ["fallow", "add_robot"], "lab_stage": 4},
-	"resource_swap": {"category": "能力升级", "name": "资源交换", "desc": "背包空余的机器人可接收同伴的矿物", "cost": {"copper_ingot": 25}, "prereq": ["fallow", "add_robot"], "lab_stage": 3},
-	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（受「机器人数量上限」限制）", "cost": {"copper_ingot": 50}, "prereq": ["fallow", "density", "info_share", "resource_swap", "add_robot"], "lab_stage": 5},
+	"memory_auto": {"category": "能力升级", "name": "坐标点记忆、自动寻路", "desc": "机器人记忆矿点与仓库，空闲时自动前往（开局自带，无需研究）", "cost": {"copper_ingot": 70}, "prereq": ["add_robot"], "lab_stage": 0},
+	"fallow": {"category": "能力升级", "name": "休耕意识", "desc": "矿点耐久低于15%时跳过，恢复到80%以上才继续开采", "cost": {"copper_ingot": 40}, "prereq": ["memory_auto", "add_robot"], "lab_stage": 1},
+	"priority_sort": {"category": "能力升级", "name": "优先排序能力", "desc": "机器人优先前往最近的矿点或仓库", "cost": {"copper_ingot": 50}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
+	"density": {"category": "能力升级", "name": "密度感知能力", "desc": "机器人感知周围密度，避免拥堵（占位）", "cost": {"copper_ingot": 60}, "prereq": ["fallow", "add_robot"], "lab_stage": 2},
+	"info_share": {"category": "能力升级", "name": "信息交流能力", "desc": "机器人之间共享记忆的坐标点", "cost": {"copper_ingot": 150}, "prereq": ["fallow", "add_robot"], "lab_stage": 4},
+	"resource_swap": {"category": "能力升级", "name": "资源交换", "desc": "背包空余的机器人可接收同伴的矿物", "cost": {"copper_ingot": 100}, "prereq": ["fallow", "add_robot"], "lab_stage": 3},
+	"reproduce": {"category": "能力升级", "name": "繁殖能力", "desc": "满足条件时自动生成新机器人（受「机器人数量上限」限制）", "cost": {"copper_ingot": 500}, "prereq": ["fallow", "density", "info_share", "resource_swap", "add_robot"], "lab_stage": 5},
 	#资源点升级
-	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2.5）", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 0},
-	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久（每级 ×1.5）", "cost": {"copper_ingot": 30}, "prereq": ["add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 1},
-	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 150}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
+	"regen_speed": {"category": "资源点升级", "name": "资源再生速度", "desc": "提升矿点耐久恢复速度（每级 ×2，满级总倍率 ×32）", "cost": {"copper_ingot": 15}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
+	"ore_durability": {"category": "资源点升级", "name": "资源点耐久度", "desc": "提升矿点初始耐久（每级 ×1.5）", "cost": {"copper_ingot": 30}, "prereq": ["regen_speed", "add_robot"], "max_level": 2, "dynamic_cost": true, "lab_stage": 1},
+	"unlock_more_ores": {"category": "资源点升级", "name": "新的资源点", "desc": "每次升级 Reveal 3 个预放置的矿点区域", "cost": {"copper_ingot": 50}, "prereq": ["regen_speed", "add_robot"], "max_level": 3, "dynamic_cost": true, "lab_stages": [1, 2, 3]},
 	#机器人升级
-	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度（每级 +60/+100/+160）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 10}, {"copper_ingot": 50}, {"copper_ingot": 200}], "lab_stages": [0, 1, 2]},
-	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 80}, "prereq": ["add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 1},
-	"mine_speed": {"category": "机器人升级", "name": "采集速度", "desc": "缩短机器人采矿耗时（每级 -0.25 秒）", "cost": {"copper_ingot": 15}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stages": [0, 0, 0, 2, 2]},
-	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限（初始20，每级+40）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 500}, {"copper_ingot": 800}, {"copper_ingot": 1200}], "lab_stages": [3, 4, 5]},
+	"move_speed": {"category": "机器人升级", "name": "移动速度", "desc": "提升机器人移动速度（每级 +60/+100/+160）", "prereq": ["add_robot"], "max_level": 3, "costs": [{"copper_ingot": 8}, {"copper_ingot": 40}, {"copper_ingot": 150}], "lab_stages": [0, 1, 2]},
+	"backpack_capacity": {"category": "机器人升级", "name": "背包容量", "desc": "提升机器人背包容量（每级 +1）", "cost": {"copper_ingot": 60}, "prereq": ["move_speed", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 1},
+	"mine_speed": {"category": "机器人升级", "name": "采集速度", "desc": "缩短机器人采矿耗时（每级 -0.25 秒）", "cost": {"copper_ingot": 12}, "prereq": ["move_speed", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stages": [0, 0, 0, 2, 2]},
+	"robot_count": {"category": "机器人升级", "name": "机器人数量上限", "desc": "提升可拥有的机器人数量上限（初始20，每级+40）", "prereq": ["move_speed", "add_robot"], "max_level": 3, "costs": [{"copper_ingot": 100}, {"copper_ingot": 250}, {"copper_ingot": 600}], "lab_stages": [2, 3, 4]},
 	# 注意：add_robot 不写 max_level —— 它的等级上限 = GameManager.get_robot_max()，
 	# 随「机器人数量上限」科技实时变化（见 get_tech_max_level）。
-	"add_robot": {"category": "机器人升级", "name": "添加机器人", "desc": "每升一级立即获得一个机器人（上限跟随「机器人数量上限」）", "cost": {"copper_ingot": 5}, "prereq": [], "dynamic_cost": true, "cost_growth": 1.15, "lab_stage": 0},
+	"add_robot": {"category": "机器人升级", "name": "添加机器人", "desc": "每升一级立即获得一个机器人（上限跟随「机器人数量上限」）", "cost": {"copper_ingot": 3}, "prereq": [], "dynamic_cost": true, "cost_growth": 1.15, "lab_stage": 0},
 	#精炼炉升级
-	"smelt_speed": {"category": "精炼炉升级", "name": "煅烧速度", "desc": "提升精炼炉的烧制速度（每级 -0.25 秒）", "cost": {"copper_ingot": 50}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
-	"double_smelt": {"category": "精炼炉升级", "name": "无中生有", "desc": "精炼炉有 15% 概率一次烧出两个铜锭", "cost": {"copper_ingot": 200}, "prereq": ["smelt_speed", "add_robot"], "lab_stage": 1},
-	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 200}, "prereq": ["double_smelt", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
-	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 80}, "prereq": ["unlock_more_ores", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
+	"smelt_speed": {"category": "精炼炉升级", "name": "煅烧速度", "desc": "提升精炼炉的烧制速度（每级 -0.25 秒）", "cost": {"copper_ingot": 20}, "prereq": ["add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 0},
+	"double_smelt": {"category": "精炼炉升级", "name": "无中生有", "desc": "精炼炉有 15% 概率一次烧出两个铜锭", "cost": {"copper_ingot": 120}, "prereq": ["smelt_speed", "add_robot"], "lab_stage": 1},
+	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 150}, "prereq": ["double_smelt", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
+	"sync_fan": {"category": "精炼炉升级", "name": "同步鼓风", "desc": "点击一个精炼炉即可为所有精炼炉同步鼓风", "cost": {"copper_ingot": 200}, "prereq": ["smelt_crit", "add_robot"], "lab_stage": 3},
+	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 100}, "prereq": ["unlock_more_ores", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
 	#巨型玻璃罩
-	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 100}, "prereq": ["add_robot"]},
+	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 2000}, "prereq": ["add_robot"]},
 	}
 
+# 开局自带、无需研究的科技：机器人天生就会记忆矿点坐标并自动寻路。
+# 这些科技的等级恒为满级，科技树里显示成「初始自带」，不能再花铜锭购买（购买入口被 can_unlock_tech 拦掉）。
+const DEFAULT_TECHS: Array[String] = ["memory_auto"]
+
+
+# 是否开局自带（科技树里不可购买、等级恒满）
+func is_default_tech(tech_id: String) -> bool:
+	return DEFAULT_TECHS.has(tech_id)
+
 # ==================== 机器人数量上限 ====================
-const ROBOT_MAX_BASE := 20           # 基础上限
-const ROBOT_MAX_PER_LEVEL := 40      # 「机器人数量上限」科技每级增加的数量
+# 注意：「机器人数量上限」科技是后期才解锁的（lab_stages=[2,3,4]），
+# 所以基础上限必须足够撑起研究所阶段 0~1 的中前期产能，不能设得太低。
+const ROBOT_MAX_BASE := 20           # 基础上限（阶段 0~1 期间可用，足够支撑早期爬升）
+const ROBOT_MAX_PER_LEVEL := 40      # 「机器人数量上限」科技每级增加的数量（3 级 → 20/60/100/140）
 
 func get_robot_max() -> int:
 	return ROBOT_MAX_BASE + ROBOT_MAX_PER_LEVEL * get_tech_level("robot_count")
@@ -355,7 +420,11 @@ func get_furnace_ore_total() -> int:
 
 # ==================== 科技等级 ====================
 func get_tech_level(tech_id: String) -> int:
-	return tech_levels.get(tech_id, 0)
+	var lv: int = tech_levels.get(tech_id, 0)
+	# 开局自带的科技等级恒为满级（不写进 tech_levels，避免与存档 / 重置逻辑混淆）
+	if DEFAULT_TECHS.has(tech_id):
+		return maxi(lv, get_tech_max_level(tech_id))
+	return lv
 
 func get_tech_max_level(tech_id: String) -> int:
 	# 「添加机器人」的等级上限 = 当前机器人数量上限，随「机器人数量上限」科技实时同步。
@@ -395,6 +464,9 @@ func is_tech_unlocked(tech_id: String) -> bool:
 # 是否可以解锁（存在 + 没满级 + 前置满足 + 资源够）
 func can_unlock_tech(tech_id: String) -> bool:
 	if not TECHS.has(tech_id):
+		return false
+	# 开局自带：无需研究，也不允许再花铜锭购买
+	if is_default_tech(tech_id):
 		return false
 	if is_tech_unlocked(tech_id):
 		return false
@@ -467,4 +539,94 @@ func clear() -> void:
 	inventory.clear()
 	tech_levels.clear()
 	selected_robot = null
+	_player_mine_cooldown = 0.0
 	inventory_changed.emit(inventory)
+
+
+# ==================== 存档系统 ====================
+# 存档内容：库存 / 科技等级 / 研究所阶段 / 机器人数量 / 音量设置。
+# 矿点显示数量（1 + unlock_more_ores×3）与炉子启用数量（1 + add_furnace）
+# 可由科技等级直接推导，不单独存，由 wolrd.gd 在恢复时重建。
+const SAVE_PATH := "user://savegame.json"
+
+# wolrd.gd 的 _ready 检测：为 true 时按存档重建世界（机器人 / 矿点 / 炉子），完成后清除
+var restore_mode: bool = false
+var _restore_robot_count: int = 0        # 恢复时需要生成的机器人数（繁殖产生的机器人也计入）
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+# 保存当前进度（JSON）。退出游戏 / 自动保存时由 wolrd.gd 调用。
+func save_game() -> void:
+	var data := {
+		"version": 1,
+		"inventory": inventory,
+		"tech_levels": tech_levels,
+		"lab_stage": lab_stage,
+		"robot_count": get_tree().get_nodes_in_group("robots").size(),
+		"ambient_volume": _ambient_volume,
+		"sfx_volume": _sfx_volume,
+		"master_volume": _master_volume,
+	}
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		push_warning("存档写入失败：%s" % SAVE_PATH)
+		return
+	f.store_string(JSON.stringify(data))
+	f.close()
+
+
+# 读取存档到当前状态，成功后置 restore_mode = true（等待 wolrd 场景消费）。
+func load_game() -> bool:
+	if not has_save():
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return false
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not parsed is Dictionary:
+		push_warning("存档格式损坏，忽略")
+		return false
+	# JSON 反序列化的数字都是 float：库存 / 科技等级 / 机器人数量逐项转回 int
+	var inv: Dictionary = {}
+	for k in parsed.get("inventory", {}):
+		inv[k] = int(parsed["inventory"][k])
+	inventory = inv
+	var tl: Dictionary = {}
+	for k in parsed.get("tech_levels", {}):
+		tl[String(k)] = int(parsed["tech_levels"][k])
+	tech_levels = tl
+	lab_stage = int(parsed.get("lab_stage", 0))
+	_restore_robot_count = int(parsed.get("robot_count", 0))
+	set_ambient_volume(float(parsed.get("ambient_volume", 1.0)))
+	set_sfx_volume(float(parsed.get("sfx_volume", 1.0)))
+	set_master_volume(float(parsed.get("master_volume", 1.0)))
+	restore_mode = true
+	inventory_changed.emit(inventory)
+	return true
+
+
+func get_restore_robot_count() -> int:
+	return _restore_robot_count
+
+
+func clear_restore_mode() -> void:
+	restore_mode = false
+
+
+# 删除存档（开始新游戏覆盖旧存档前调用，语义更明确）
+func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
+# 开始新游戏：清空全部进度（等价旧存档被覆盖的起点状态）
+func reset_progress() -> void:
+	clear()
+	_tech_max_level_overrides = {}
+	lab_stage = 0
+	_restore_robot_count = 0
+	restore_mode = false

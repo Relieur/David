@@ -53,9 +53,46 @@ func _ready() -> void:
 	if _placed_patches.size() > 0:
 		_set_patch_active(_placed_patches[0], true)
 		_reveal_index = 1
+	# 继续游戏：按存档恢复矿点显示数量 / 炉子启用数量 / 机器人数量
+	if GameManager.restore_mode:
+		_apply_restore()
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	# [测试] 开局赠送 100000 铜锭，方便测试科技树，后期删除
-	GameManager.add_item("copper_ingot", 100000)
+	# GameManager.add_item("copper_ingot", 100000)
+
+
+# ==================== 存档恢复 / 自动保存 ====================
+const AUTOSAVE_INTERVAL := 60.0       # 每 60 秒自动保存一次
+var _autosave_timer: float = 0.0
+
+
+# 继续游戏：把存档里的进度还原到场景（科技等级 / 库存 / 研究所阶段已在 load_game 还原到 GameManager）
+func _apply_restore() -> void:
+	# 矿点：开局显示 1 个 + 每级「新的资源点」reveal 3 个
+	var ore_lv := GameManager.get_tech_level("unlock_more_ores")
+	var target_patches := mini(1 + ore_lv * 3, _placed_patches.size())
+	while _reveal_index < target_patches:
+		_set_patch_active(_placed_patches[_reveal_index], true)
+		_reveal_index += 1
+	# 炉子：开局启用 1 个 + 每级「扩建精炼炉」启用下一个
+	var furnace_target := mini(1 + GameManager.get_tech_level("add_furnace"), _placed_furnaces.size())
+	while _reveal_furnace_index < furnace_target:
+		if is_instance_valid(_placed_furnaces[_reveal_furnace_index]):
+			_placed_furnaces[_reveal_furnace_index].set_active(true)
+		_reveal_furnace_index += 1
+	# 机器人：恢复存档时的数量（繁殖产生的也计入），不超过当前上限
+	var robots_target := mini(GameManager.get_restore_robot_count(), _get_robot_max())
+	while _count_robots() < robots_target:
+		if not _spawn_robot():
+			break
+	GameManager.clear_restore_mode()
+	print("已从存档恢复：机器人 %d / 矿点 %d / 炉子 %d" % [_count_robots(), _reveal_index, _reveal_furnace_index])
+
+
+# 每 60 秒自动保存；窗口关闭（退出游戏）时也保存一次
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		GameManager.save_game()
 
 
 # ==================== 精炼炉（沿用场景里摆放的位置） ====================
@@ -119,9 +156,20 @@ func _spawn_robots() -> void:
 		_spawn_robot()
 
 
+# 统计场上真实的机器人数量。
+# 注意：RobotContainer 下还挂着精炼炉（参与 y-sort），
+# 不能直接用 get_child_count()，否则会把炉子算成机器人。
+func _count_robots() -> int:
+	var n := 0
+	for child in robot_container.get_children():
+		if child is Robot:
+			n += 1
+	return n
+
+
 # 生成一个机器人，随机放在仓库周围；达到数量上限时返回 false
 func _spawn_robot() -> bool:
-	if robot_container.get_child_count() >= _get_robot_max():
+	if _count_robots() >= _get_robot_max():
 		return false
 	var robot := ROBOT_SCENE.instantiate() as Robot
 	var angle := randf() * TAU
@@ -163,19 +211,24 @@ func _sync_all_patches() -> void:
 # 每帧驱动繁殖计时
 func _process(delta: float) -> void:
 	_tick_reproduce(delta)
+	# 自动保存计时
+	_autosave_timer += delta
+	if _autosave_timer >= AUTOSAVE_INTERVAL:
+		_autosave_timer = 0.0
+		GameManager.save_game()
 
 
 # 繁殖能力：解锁后每隔 REPRODUCE_INTERVAL 秒在仓库周围生成一个新机器人，直到上限
 func _tick_reproduce(delta: float) -> void:
 	if not GameManager.is_tech_unlocked("reproduce"):
 		return
-	if robot_container.get_child_count() >= _get_robot_max():
+	if _count_robots() >= _get_robot_max():
 		return
 	_reproduce_timer += delta
 	if _reproduce_timer >= REPRODUCE_INTERVAL:
 		_reproduce_timer = 0.0
 		if _spawn_robot():
-			print("机器人繁殖，当前数量 %d" % robot_container.get_child_count())
+			print("机器人繁殖，当前数量 %d" % _count_robots())
 
 
 # 取消选择机器人
@@ -252,7 +305,11 @@ func _on_tech_unlocked(tech_id: String) -> void:
 			if child is OrePatch:
 				child.refill_to_max()
 	elif tech_id == "add_robot":
-		_spawn_robot()
+		if not _spawn_robot():
+			# 正常情况下不会发生（购买前 can_unlock_tech 已判定过上限）。
+			# 真到了这里说明两处计数口径又不一致了，铜锭已被扣掉，必须报警排查。
+			push_warning("添加机器人失败：已扣除铜锭但未生成机器人（机器人 %d / 上限 %d）"
+				% [_count_robots(), _get_robot_max()])
 	elif tech_id == "add_furnace":
 		_reveal_next_furnace()
 	elif tech_id == "info_share":

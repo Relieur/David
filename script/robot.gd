@@ -8,7 +8,13 @@ class_name Robot
 @export var carry_capacity: int = 1          # 携带上限
 
 const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
-@export var deposit_range: float = 150.0     # 卸货判定距离：炉体碰撞半宽 120 + 机器人半径 22 + 余量，停在炉体外圈即卸货
+@export var deposit_range: float = 200.0     # 卸货判定距离：需大于炉体硬碰撞体(SolidBody 240×240，对角半宽约170+机器人半径22)，
+											 # 否则机器人直线冲炉被硬碰撞挡住，永远到不了卸货点卡在炉前
+
+# 挖到矿时头顶的「+1」浮动字
+const FLOATING_TEXT_SCENE: PackedScene = preload("res://scene/floating_text.tscn")
+const MINE_FLOATER_COLOR := Color(0.45, 0.95, 0.42, 1.0)   # 绿色：采到矿物
+const MINE_FLOATER_OFFSET_Y := -52.0                        # 浮在机器人头顶
 
 # ==================== 节点引用 ====================
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
@@ -32,7 +38,7 @@ var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫
 func _ready() -> void:
 	input_pickable = true
 	add_to_group("robots")
-	collision_mask = 0                    # 机器人与彼此不硬碰撞，靠软分离避免重叠/挤住
+	collision_mask = 2                    # 只碰撞炉子 SolidBody（layer 2），不与彼此硬碰撞，靠软分离避免重叠/挤住
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 	if not mouse_entered.is_connected(_on_mouse_entered):
@@ -83,10 +89,32 @@ func _update_move_speed() -> void:
 
 
 # ==================== 点击选中 ====================
+# 点击优先级：机器人 > 掉落物 > 矿石（挖矿）
+# 拾取顺序不保证，所以由掉落物/矿石主动让位：先用这个判定看看是不是点在机器人身上
+static func is_point_over_robot(point: Vector2) -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	var space := tree.root.world_2d.direct_space_state
+	if space == null:
+		return false
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = point
+	params.collide_with_areas = false
+	params.collide_with_bodies = true
+	var hits := space.intersect_point(params, 32)
+	for hit in hits:
+		if hit.collider is Robot:
+			return true
+	return false
+
+
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton \
 	and event.pressed \
 	and event.button_index == MOUSE_BUTTON_LEFT:
+		# 机器人优先级最高：吞掉本次点击，避免同一次点击再触发掉落物回收 / 挖矿
+		get_viewport().set_input_as_handled()
 		GameManager.select_robot(self)
 
 
@@ -255,7 +283,7 @@ func _tick_idle(delta: float) -> void:
 # ==================== 绕炉避障 ====================
 # 朝炉子走且进入 FURNACE_AVOID_DIST 时，按距离混入切线方向，绕弧通过而不是贴墙滑行。
 const FURNACE_WALL_DIST := 175.0    # 绕行时与炉心保持的最近距离（碰撞半宽 120 + 机器人半径 22 + 余量）
-const FURNACE_AVOID_DIST := 330.0   # 进入这个距离就开始绕
+const FURNACE_AVOID_DIST := 230.0   # 进入这个距离就开始绕（原 330 过大，绕行弧太长，回仓库卸货走冤枉路）
 
 # skip 传目标炉子本身：回程卸货需要径直靠近它，不绕
 func _apply_furnace_avoidance(dir: Vector2, skip: Node2D = null) -> Vector2:
@@ -294,8 +322,10 @@ func _tick_moving() -> void:
 		return
 
 	var dir := (_target_ore.global_position - global_position).normalized()
-	if dist > FURNACE_AVOID_DIST:
-		dir = _apply_furnace_avoidance(dir)  # 快到矿点时不再绕，保证最终能贴到矿上
+	# 始终绕炉避障（函数内部按到炉子的距离自行决定是否绕）。
+	# 之前用「到矿点的距离」判断是否绕行是错的：矿点紧贴炉子时提前关闭避障，
+	# 机器人直线冲矿被炉体硬碰撞挡住，卡在炉前无法前进。
+	dir = _apply_furnace_avoidance(dir)
 	velocity = dir * move_speed + _get_separation_velocity()
 	move_and_slide()
 
@@ -393,6 +423,7 @@ func _start_mining() -> void:
 			break
 		if ore.mine():
 			_carry_count += 1
+			_spawn_mine_floater()
 			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
 
 	if is_instance_valid(ore):
@@ -413,6 +444,18 @@ func _start_mining() -> void:
 		_enter_returning()
 	else:
 		_state = State.IDLE
+
+
+# 挖到矿时在头顶弹出绿色「+1」（挂到场景根，用世界坐标，不随机器人一起消失）
+func _spawn_mine_floater() -> void:
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var ft := FLOATING_TEXT_SCENE.instantiate() as FloatingText
+	if ft == null:
+		return
+	scene_root.add_child(ft)
+	ft.setup("+1", MINE_FLOATER_COLOR, global_position + Vector2(0.0, MINE_FLOATER_OFFSET_Y))
 
 
 # ==================== 卸货 ====================
