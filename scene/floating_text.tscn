@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://dft7xq0k8m2ba"]
-
-[ext_resource type="Script" uid="uid://brpsxe76wetyo" path="res://script/floating_text.gd" id="1_ft"]
-
-[node name="FloatingText" type="Node2D"]
-script = ExtResource("1_ft")

@@ -46,6 +46,7 @@ var _pending: Array = []            # 待播队列：当前提示框播放期间
 var _intro_done: bool = false
 var _five_ingot_triggered: bool = false
 var _heat_empty_triggered: bool = false   # 炉温归零引导是否已触发（仅一次）
+var _heat_empty_pending: bool = false      # 开场剧情期间触发过炉温归零，等剧情结束后补播
 
 
 func _ready() -> void:
@@ -109,11 +110,12 @@ func _check_five_ingot() -> void:
 func _on_furnace_heat_empty(_furnace: Node) -> void:
 	if _heat_empty_triggered:
 		return
-	# 开场剧情结束后才生效（避免开局阶段被误触发打断）
-	if not _intro_done:
-		return
 	# 仅有一个精炼炉（group "furnace" 只含启用中的炉子）时才提示
 	if get_tree().get_nodes_in_group("furnace").size() != 1:
+		return
+	# 开场剧情期间触发：先记下来，等剧情结束再补播（信号只发一次，不能直接丢弃）
+	if not _intro_done:
+		_heat_empty_pending = true
 		return
 	_heat_empty_triggered = true
 	play(HEAT_EMPTY_LINES)
@@ -175,6 +177,16 @@ func _on_fade_out_finished() -> void:
 		return
 	# 队列空：补一次五锭检查（覆盖「开场期间就烧够 5 个」的漏触发）
 	_check_five_ingot()
+	# 开场期间炉温归零过：补播对应引导
+	if _heat_empty_pending and not _heat_empty_triggered:
+		_heat_empty_pending = false
+		_heat_empty_triggered = true
+		play(HEAT_EMPTY_LINES)
+
+
+# 场景销毁兜底：避免 intro_playing 状态残留到下一个场景
+func _exit_tree() -> void:
+	GameManager.intro_playing = false
 
 
 # 释放：隐藏 + 停止拦截 + 解锁游戏交互（任何结束路径都走这里）

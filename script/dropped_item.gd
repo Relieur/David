@@ -33,6 +33,32 @@ func _process(_delta: float) -> void:
 		_trail.follow(global_position)
 
 
+# 判断某世界坐标是否位于可点击的掉落物上（供矿点 / 精炼炉做点击优先级判断）
+static func is_point_over_any_item(point: Vector2) -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	for item in tree.get_nodes_in_group("dropped_items"):
+		var dropped := item as DroppedItem
+		if dropped == null or not dropped.input_pickable:
+			continue
+		var shape: Shape2D = null
+		for child in dropped.get_children():
+			if child is CollisionShape2D and child.shape != null:
+				shape = child.shape
+				break
+		if shape == null:
+			continue
+		var local := dropped.to_local(point)
+		if shape is RectangleShape2D:
+			if Rect2(-shape.size * 0.5, shape.size).has_point(local):
+				return true
+		elif shape is CircleShape2D:
+			if local.length() <= shape.radius:
+				return true
+	return false
+
+
 # 点击掉落物：自动飞回仓库并卸货
 func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -113,9 +139,23 @@ func _finish_fly_trail() -> void:
 func _deposit() -> void:
 	if _deposited:
 		return
+	var target := _target_furnace
+	# 目标炉子飞行途中被停用 / 释放：改投最近的可用炉子，避免矿物凭空消失
+	if target == null or not is_instance_valid(target) \
+	or not target.has_method("deposit_ore") \
+	or (target.has_method("is_active") and not target.is_active()):
+		target = _find_nearest_furnace()
+	if target == null:
+		# 当前没有可用炉子：恢复成可点击状态，等玩家之后重新回收
+		_target_furnace = null
+		input_pickable = true
+		z_index = 50
+		scale = Vector2.ONE
+		set_process(false)
+		_finish_fly_trail()
+		return
 	_deposited = true
-	if _target_furnace != null and is_instance_valid(_target_furnace) and _target_furnace.has_method("deposit_ore"):
-		_target_furnace.deposit_ore(amount)
+	target.deposit_ore(amount)
 	_finish_fly_trail()
 	queue_free()
 

@@ -18,7 +18,7 @@ const ZOOM_MIN := 0.4
 const ZOOM_MAX := 2.2
 const HOVER_DEBOUNCE := 0.08      # 悬停消失防抖（节点间隙移动不闪烁）
 
-# 科技 → 图标文件名（icon/ 下）。无图标的科技（背包容量、玻璃罩）显示「?」占位节点
+# 科技 → 图标文件名（icon/ 下）。无图标的科技（背包容量）显示「?」占位节点
 const ICONS := {
 	"memory_auto": "Intel_AutoPathfinding.png",
 	"fallow": "Intel_FallowAwareness.png",
@@ -124,6 +124,7 @@ func _ready() -> void:
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	visible = false
+	set_process(false)   # 关闭时不参与逐帧悬停检测
 
 
 # 每帧轮询鼠标位置，决定介绍框的显示/隐藏。
@@ -163,13 +164,20 @@ func _open() -> void:
 	visible = true
 	# 不暂停游戏（机器人 / 精炼炉照常运行），仅标记面板打开、屏蔽与游戏世界的交互
 	GameManager.lab_open = true
+	set_process(true)
 	_refresh_all()
 
 
 func _close() -> void:
 	visible = false
 	GameManager.lab_open = false
+	set_process(false)
 	_clear_desc()
+
+
+# 场景销毁兜底：避免 lab_open 状态残留到下一个场景
+func _exit_tree() -> void:
+	GameManager.lab_open = false
 
 
 # 供 HUD 左下角的 LAB 按钮调用（开/关切换）

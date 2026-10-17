@@ -29,6 +29,7 @@ const SFX2D_ATTENUATION := 0.4                    # 2D 音效衰减指数（越�
 const DUCK_FREE_COUNT := 3                       # 挖矿机器人 <= 此数量时不压音（方案三）
 const DUCK_PER_ROBOT_DB := 0.8                   # 每多一个挖矿机器人额外压低的分贝
 const DUCK_MAX_DB := 12.0                        # ducking 最多额外压低的分贝
+const SFX2D_POOL_MAX := 32                       # 2D 音效播放器池上限，超出时丢弃本次音效，避免无限扩容
 
 var _sfx_players: Array[AudioStreamPlayer] = []   # 一次性全局音效播放器池（动态扩容，不打断正在播的）
 var _sfx2d_players: Array[AudioStreamPlayer2D] = []  # 2D 采矿音效播放器池（带距离衰减）
@@ -50,11 +51,13 @@ var _master_volume: float = 1.0                   # 总音量（0~1，同时缩�
 
 
 func _ready() -> void:
+	load_options()
 	_setup_audio()
 
 
 func _process(delta: float) -> void:
-	_tick_player_mine_cooldown(delta)
+	if PLAYER_MINE_LIMIT_ENABLED:
+		_tick_player_mine_cooldown(delta)
 	_duck_timer -= delta
 	if _duck_timer <= 0.0:
 		_duck_timer = 0.3
@@ -72,6 +75,9 @@ func _update_mining_count() -> void:
 
 # 初始化音频播放器（环境音 + 炉火循环 + 一次性音效池）
 func _setup_audio() -> void:
+	# 环境音与炉火声都是循环片段，必须显式开启循环，否则只播一遍就静音
+	_enable_loop(SFX_AMBIENT)
+	_enable_loop(SFX_STOVE)
 	_ambient_player = AudioStreamPlayer.new()
 	_ambient_player.stream = SFX_AMBIENT
 	_ambient_player.volume_db = SILENT_DB
@@ -282,6 +288,8 @@ func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> v
 	if stream == null:
 		return
 	var p := _acquire_free_2d_player()
+	if p == null:
+		return
 	p.stream = stream
 	p.global_position = world_pos
 	p.volume_db = SILENT_DB
@@ -295,6 +303,8 @@ func _acquire_free_2d_player() -> AudioStreamPlayer2D:
 	for p in _sfx2d_players:
 		if p != null and is_instance_valid(p) and not p.playing:
 			return p
+	if _sfx2d_players.size() >= SFX2D_POOL_MAX:
+		return null   # 并发已达上限：丢弃本次音效，防止池无限膨胀
 	var p := AudioStreamPlayer2D.new()
 	p.max_distance = SFX2D_MAX_DISTANCE
 	p.attenuation = SFX2D_ATTENUATION
@@ -346,10 +356,13 @@ func stop_ambient() -> void:
 # 任一精炼炉在烧就循环播放，最后一炉停烧时停止
 func furnace_burning_started() -> void:
 	_burning_furnaces += 1
-	if _stove_player != null and not _stove_player.playing:
+	if _stove_player == null:
+		return
+	if not _stove_player.playing:
 		_stove_player.volume_db = SILENT_DB
 		_stove_player.play()
-		_fade_to(_stove_player, _stove_target_db(), AMBIENT_FADE)
+	# 无论是否正在播放都重新淡入：可取消上一次「淡出后停止」的 tween，避免新炉开烧时被旧回调停掉
+	_fade_to(_stove_player, _stove_target_db(), AMBIENT_FADE)
 
 
 func furnace_burning_stopped() -> void:
@@ -375,10 +388,9 @@ const LAB_STAGE_UPGRADE_COSTS := [              # 研究所升级消耗（铜锭
 ]
 
 # ==================== 科技定义 ====================
-# category: 分类（对应 CATEGORY_ORDER）
+# category: 分类（供 UI 展示 / 后续筛选使用）
 # max_level>1 表示可重复升级（如扩展矿区每级解锁一块）；默认 1 为一次性解锁
 # prereq: 前置科技，需全部已解锁才能研究
-const CATEGORY_ORDER := ["能力升级", "资源点升级", "机器人升级", "精炼炉升级", "巨型玻璃罩"]
 
 const TECHS := {
 	#能力升级
@@ -407,8 +419,6 @@ const TECHS := {
 	"smelt_crit": {"category": "精炼炉升级", "name": "暴击率", "desc": "提升精炼炉一次烧出两个铜锭的概率（每级 +15%）", "cost": {"copper_ingot": 150}, "prereq": ["double_smelt", "add_robot"], "max_level": 4, "dynamic_cost": true, "lab_stage": 2},
 	"sync_fan": {"category": "精炼炉升级", "name": "同步鼓风", "desc": "点击一个精炼炉即可为所有精炼炉同步鼓风", "cost": {"copper_ingot": 200}, "prereq": ["smelt_crit", "add_robot"], "lab_stage": 3},
 	"add_furnace": {"category": "精炼炉升级", "name": "扩建精炼炉", "desc": "启用场景里预放置的下一个精炼炉，并行烧制（共 5 次）", "cost": {"copper_ingot": 100}, "prereq": ["unlock_more_ores", "add_robot"], "max_level": 5, "dynamic_cost": true, "lab_stage": 1},
-	#巨型玻璃罩
-	"glass_dome": {"category": "巨型玻璃罩", "name": "建设玻璃罩", "desc": "建造巨型玻璃罩", "cost": {"copper_ingot": 2000}, "prereq": ["add_robot"]},
 	}
 
 # 开局自带、无需研究的科技：机器人天生就会记忆矿点坐标并自动寻路。
@@ -583,19 +593,70 @@ func clear() -> void:
 	tech_levels.clear()
 	selected_robot = null
 	_player_mine_cooldown = 0.0
+	# 场景级音频状态也要复位，否则重开一局时炉火计数会沿用旧值
+	_burning_furnaces = 0
+	_mining_count = 0
+	if _stove_player != null:
+		_stove_player.stop()
 	inventory_changed.emit(inventory)
 
 
+# 返回主菜单 / 退出到开始界面前调用：清理只在当前场景有效的状态
+func reset_scene_state() -> void:
+	_burning_furnaces = 0
+	_mining_count = 0
+	if _stove_player != null:
+		_stove_player.stop()
+	selected_robot = null
+	lab_open = false
+	intro_playing = false
+
+
 # ==================== 存档系统 ====================
-# 存档内容：库存 / 科技等级 / 研究所阶段 / 机器人数量 / 音量设置。
+# 存档内容：库存 / 科技等级 / 研究所阶段 / 机器人（位置、背包、记忆）/
+# 精炼炉状态（待烧矿、炉温、烧制进度）/ 矿点耐久 / 音量设置。
 # 矿点显示数量（1 + unlock_more_ores×3）与炉子启用数量（1 + add_furnace）
 # 可由科技等级直接推导，不单独存，由 wolrd.gd 在恢复时重建。
 const SAVE_PATH := "user://savegame.json"
 
+# 音量设置独立存档：开始界面也能读写，且不会覆盖游戏进度
+const OPTIONS_PATH := "user://settings.json"
+
+
+func load_options() -> void:
+	if not FileAccess.file_exists(OPTIONS_PATH):
+		return
+	var f := FileAccess.open(OPTIONS_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not parsed is Dictionary:
+		return
+	_ambient_volume = clampf(float(parsed.get("ambient_volume", 1.0)), 0.0, 1.0)
+	_sfx_volume = clampf(float(parsed.get("sfx_volume", 1.0)), 0.0, 1.0)
+	_master_volume = clampf(float(parsed.get("master_volume", 1.0)), 0.0, 1.0)
+
+
+func save_options() -> void:
+	var f := FileAccess.open(OPTIONS_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify({
+		"ambient_volume": _ambient_volume,
+		"sfx_volume": _sfx_volume,
+		"master_volume": _master_volume,
+	}))
+	f.close()
+
 # wolrd.gd 的 _ready 检测：为 true 时按存档重建世界（机器人 / 矿点 / 炉子），完成后清除
 var restore_mode: bool = false
 var _restore_robot_count: int = 0        # 恢复时需要生成的机器人数（繁殖产生的机器人也计入）
-var _restore_robot_memory: Array = []    # 恢复时按机器人生成顺序对应的已记忆矿区名（Array[Array[String]]）
+var _restore_robot_memory: Array = []    # 旧版存档字段：按机器人生成顺序对应的已记忆矿区名
+var _restore_robots: Array = []          # 新版存档：每个机器人的 {memory, pos, carry}
+var _restore_furnaces: Array = []        # 每个炉子的 {name, ore, heat, smelt}
+var _restore_patch_durability: Dictionary = {}  # 矿点节点名 -> 耐久
+var _restore_drops: Array = []           # 地上未回收的掉落物 {type, amount, pos}
 
 
 func has_save() -> bool:
@@ -604,20 +665,50 @@ func has_save() -> bool:
 
 # 保存当前进度（JSON）。退出游戏 / 自动保存时由 wolrd.gd 调用。
 func save_game() -> void:
-	# 每个机器人已记忆的矿区（按名字存，恢复时按名字找回节点）
-	var robot_memory: Array = []
+	# 机器人：记忆 + 位置 + 背包。逐条整体保存，避免依赖分组顺序与生成顺序对齐
+	var robots: Array = []
 	for robot in get_tree().get_nodes_in_group("robots"):
-		if robot.has_method("get_known_patch_names"):
-			robot_memory.append(robot.get_known_patch_names())
-		else:
-			robot_memory.append([])
+		robots.append({
+			"memory": robot.get_known_patch_names() if robot.has_method("get_known_patch_names") else [],
+			"x": robot.global_position.x,
+			"y": robot.global_position.y,
+			"carry": robot.get_carry_count() if robot.has_method("get_carry_count") else 0,
+		})
+	# 精炼炉：按节点名保存待烧矿 / 炉温 / 烧制进度
+	var furnaces: Array = []
+	for node in get_tree().get_nodes_in_group("furnace"):
+		if node is RefiningFurnace:
+			furnaces.append({
+				"name": String(node.name),
+				"ore": node.get_ore_stock(),
+				"heat": node.get_heat(),
+				"smelt": node.get_smelt_timer(),
+			})
+	# 矿点耐久：按节点名保存
+	var patches: Dictionary = {}
+	for node in get_tree().get_nodes_in_group("ore_patch"):
+		if node is OrePatch and node.has_method("get_durability"):
+			patches[String(node.name)] = node.get_durability()
+	# 地上未回收的掉落物（飞行中的不存，它们马上会入炉）
+	var drops: Array = []
+	for node in get_tree().get_nodes_in_group("dropped_items"):
+		if node is DroppedItem and node.input_pickable:
+			drops.append({
+				"type": node.item_type,
+				"amount": node.amount,
+				"x": node.global_position.x,
+				"y": node.global_position.y,
+			})
 	var data := {
-		"version": 1,
+		"version": 2,
 		"inventory": inventory,
 		"tech_levels": tech_levels,
 		"lab_stage": lab_stage,
-		"robot_count": get_tree().get_nodes_in_group("robots").size(),
-		"robot_memory": robot_memory,
+		"robot_count": robots.size(),
+		"robots": robots,
+		"furnaces": furnaces,
+		"patches": patches,
+		"drops": drops,
 		"ambient_volume": _ambient_volume,
 		"sfx_volume": _sfx_volume,
 		"master_volume": _master_volume,
@@ -628,6 +719,8 @@ func save_game() -> void:
 		return
 	f.store_string(JSON.stringify(data))
 	f.close()
+	# 音量同时也写入独立设置文件，保证下次启动在开始界面就能恢复
+	save_options()
 
 
 # 读取存档到当前状态，成功后置 restore_mode = true（等待 wolrd 场景消费）。
@@ -643,27 +736,99 @@ func load_game() -> bool:
 		push_warning("存档格式损坏，忽略")
 		return false
 	# JSON 反序列化的数字都是 float：库存 / 科技等级 / 机器人数量逐项转回 int
+	var raw_inv = parsed.get("inventory", {})
+	if not raw_inv is Dictionary:
+		push_warning("存档库存字段损坏，忽略")
+		return false
 	var inv: Dictionary = {}
-	for k in parsed.get("inventory", {}):
-		inv[k] = int(parsed["inventory"][k])
+	for k in raw_inv:
+		inv[String(k)] = maxi(0, int(raw_inv[k]))
 	inventory = inv
+	var raw_tl = parsed.get("tech_levels", {})
+	if not raw_tl is Dictionary:
+		push_warning("存档科技字段损坏，忽略")
+		return false
 	var tl: Dictionary = {}
-	for k in parsed.get("tech_levels", {}):
-		tl[String(k)] = int(parsed["tech_levels"][k])
-	tech_levels = tl
-	lab_stage = int(parsed.get("lab_stage", 0))
-	_restore_robot_count = int(parsed.get("robot_count", 0))
-	# 机器人记忆的矿区名：保持「第 i 个机器人对应第 i 项」的顺序
+	for k in raw_tl:
+		tl[String(k)] = int(raw_tl[k])
+	tech_levels = {}
+	lab_stage = clampi(int(parsed.get("lab_stage", 0)), 0, LAB_STAGE_UPGRADE_COSTS.size())
+	# 第一轮：除 add_robot 外按各自上限夹紧（add_robot 上限依赖 robot_count，必须先恢复 robot_count）
+	for k in tl:
+		var tid := String(k)
+		if tid == "add_robot" or not TECHS.has(tid):
+			continue
+		tech_levels[tid] = clampi(int(tl[k]), 0, get_tech_max_level(tid))
+	if tl.has("add_robot"):
+		tech_levels["add_robot"] = clampi(int(tl["add_robot"]), 0, get_tech_max_level("add_robot"))
+	# 新版存档：机器人记录（位置 / 背包 / 记忆）
+	_restore_robots = []
+	var raw_robots = parsed.get("robots", [])
+	if raw_robots is Array:
+		for r in raw_robots:
+			if not r is Dictionary:
+				continue
+			var mem: Array = []
+			var raw_mem = r.get("memory", [])
+			if raw_mem is Array:
+				for n in raw_mem:
+					mem.append(String(n))
+			_restore_robots.append({
+				"memory": mem,
+				"pos": Vector2(float(r.get("x", 0.0)), float(r.get("y", 0.0))),
+				"carry": maxi(0, int(r.get("carry", 0))),
+			})
+	_restore_robot_count = maxi(0, int(parsed.get("robot_count", _restore_robots.size())))
+	if not _restore_robots.is_empty():
+		_restore_robot_count = mini(_restore_robot_count, _restore_robots.size())
+	# 旧版存档兼容：只有 robot_memory（按生成顺序）
 	_restore_robot_memory = []
-	for arr in parsed.get("robot_memory", []):
-		var names: Array = []
-		if arr is Array:
-			for n in arr:
-				names.append(String(n))
-		_restore_robot_memory.append(names)
+	var raw_memories = parsed.get("robot_memory", [])
+	if raw_memories is Array:
+		for arr in raw_memories:
+			var names: Array = []
+			if arr is Array:
+				for n in arr:
+					names.append(String(n))
+			_restore_robot_memory.append(names)
+	# 精炼炉状态
+	_restore_furnaces = []
+	var raw_furnaces = parsed.get("furnaces", [])
+	if raw_furnaces is Array:
+		for st in raw_furnaces:
+			if not st is Dictionary:
+				continue
+			_restore_furnaces.append({
+				"name": String(st.get("name", "")),
+				"ore": maxi(0, int(st.get("ore", 0))),
+				"heat": clampf(float(st.get("heat", RefiningFurnace.HEAT_MAX)), 0.0, RefiningFurnace.HEAT_MAX),
+				"smelt": maxf(0.0, float(st.get("smelt", 0.0))),
+			})
+	# 矿点耐久
+	_restore_patch_durability = {}
+	var raw_patches = parsed.get("patches", {})
+	if raw_patches is Dictionary:
+		for patch_name in raw_patches:
+			_restore_patch_durability[String(patch_name)] = maxf(0.0, float(raw_patches[patch_name]))
+	# 地上掉落物
+	_restore_drops = []
+	var raw_drops = parsed.get("drops", [])
+	if raw_drops is Array:
+		for d in raw_drops:
+			if not d is Dictionary:
+				continue
+			_restore_drops.append({
+				"type": String(d.get("type", "copper")),
+				"amount": maxi(1, int(d.get("amount", 1))),
+				"pos": Vector2(float(d.get("x", 0.0)), float(d.get("y", 0.0))),
+			})
 	set_ambient_volume(float(parsed.get("ambient_volume", 1.0)))
 	set_sfx_volume(float(parsed.get("sfx_volume", 1.0)))
 	set_master_volume(float(parsed.get("master_volume", 1.0)))
+	# 切场景前清掉旧场景残留的运行时状态
+	selected_robot = null
+	lab_open = false
+	intro_playing = false
 	restore_mode = true
 	inventory_changed.emit(inventory)
 	return true
@@ -675,6 +840,22 @@ func get_restore_robot_count() -> int:
 
 func get_restore_robot_memory() -> Array:
 	return _restore_robot_memory
+
+
+func get_restore_robots() -> Array:
+	return _restore_robots
+
+
+func get_restore_furnaces() -> Array:
+	return _restore_furnaces
+
+
+func get_restore_patch_durability() -> Dictionary:
+	return _restore_patch_durability
+
+
+func get_restore_drops() -> Array:
+	return _restore_drops
 
 
 func clear_restore_mode() -> void:
@@ -694,4 +875,8 @@ func reset_progress() -> void:
 	lab_stage = 0
 	_restore_robot_count = 0
 	_restore_robot_memory = []
+	_restore_robots = []
+	_restore_furnaces = []
+	_restore_patch_durability = {}
+	_restore_drops = []
 	restore_mode = false

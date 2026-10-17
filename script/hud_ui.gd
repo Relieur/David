@@ -174,8 +174,22 @@ func _get_display_name(item_type: String) -> String:
 	return ITEM_NAMES.get(item_type, item_type)
 
 
+# 炉内铜矿没有变化信号，靠低频轮询；0.25 秒一次足够显示，避免每帧扫分组
+const POLL_INTERVAL := 0.25
+var _poll_timer: float = 0.0
+
+
 func _process(delta: float) -> void:
-	# 炉内铜矿没有变化信号，靠每帧轮询；数值没变就不重写 text
+	# 冷却按帧平滑递减（提示队列的动画由 tween 自己驱动）
+	if _sustain_cooldown > 0.0:
+		_sustain_cooldown -= delta
+	if _ui_hidden:
+		return
+	_poll_timer -= delta
+	if _poll_timer > 0.0:
+		return
+	_poll_timer = POLL_INTERVAL
+	# 炉内铜矿没有变化信号，靠轮询；数值没变就不重写 text
 	var changed := false
 	for item_type in _res_cache:
 		var amount := _get_amount(item_type)
@@ -185,7 +199,10 @@ func _process(delta: float) -> void:
 		changed = true
 	if changed:
 		_refresh_resources(GameManager.inventory)
-	_tick_sustain_hint(delta)
+	# 可持续提示：冷却结束且满足条件时触发一次
+	if _sustain_cooldown <= 0.0 and _should_show_sustain_hint():
+		_sustain_cooldown = SUSTAIN_COOLDOWN
+		show_hint(SUSTAIN_TEXT)
 
 
 # ==================== 研究所目标面板 ====================
@@ -227,14 +244,7 @@ func show_hint(text: String) -> void:
 		_play_next_hint()
 
 
-# 驱动「可持续」提示的冷却。触发条件：当前只显示 1 个矿点，且其耐久低于 30%。
-func _tick_sustain_hint(delta: float) -> void:
-	if _sustain_cooldown > 0.0:
-		_sustain_cooldown -= delta
-		return
-	if _should_show_sustain_hint():
-		_sustain_cooldown = SUSTAIN_COOLDOWN
-		show_hint(SUSTAIN_TEXT)
+# 驱动「可持续」提示的冷却改由 _process 低频轮询处理（见 _process）
 
 
 # 判断是否满足「只有一个矿点且耐久低于 30%」
@@ -490,6 +500,7 @@ func _on_gear_unhover() -> void:
 
 
 func _close_settings() -> void:
+	GameManager.save_options()
 	_settings_root.visible = false
 
 
@@ -503,11 +514,14 @@ func _on_lab_pressed() -> void:
 func _on_quit_pressed() -> void:
 	# 退出前先存一次，避免 last 60 秒内的进度（含机器人记忆）丢失
 	GameManager.save_game()
+	GameManager.save_options()
 	get_tree().quit()
 
 
 func _on_menu_pressed() -> void:
-	# 回主菜单同样先存档
+	# 回主菜单同样先存档，并清理只在当前场景有效的状态（炉火音效 / 选中 / 面板标记）
 	GameManager.save_game()
+	GameManager.save_options()
+	GameManager.reset_scene_state()
 	_close_settings()
 	get_tree().change_scene_to_file(START_SCENE)

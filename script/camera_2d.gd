@@ -80,7 +80,7 @@ func _process(delta: float) -> void:
 		_target_position+= dir * move_speed * delta
 
 	_clamp_target()
-	position=position.lerp(_target_position,smooth*delta)
+	position=position.lerp(_target_position, clampf(smooth*delta, 0.0, 1.0))
 
 
 func _clamp_target() -> void:
@@ -124,6 +124,8 @@ func fly_to(target: Vector2, duration: float = 0.6) -> void:
 
 	# 同时更新内部目标位置，避免飞完之后又被 lerp 拉回去
 	_target_position = target
+	_clamp_target()
+	target = _target_position
 
 	var start := position
 	var tween := create_tween()
@@ -137,8 +139,18 @@ func fly_to(target: Vector2, duration: float = 0.6) -> void:
 	_flying = false
 
 
+# 窗口尺寸变化（全屏切换 / 改窗口大小）时刷新视口缓存，重新计算最小缩放与边界
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_SIZE_CHANGED and is_inside_tree():
+		viewport_size = get_viewport_rect().size
+		recompute_zoom_min()
+		_clamp_target()
+
+
 #缩放与中键拖动
 func _unhandled_input(event:InputEvent)->void:
+	if GameManager.lab_open:
+		return  # 研究所打开时完全屏蔽地图缩放 / 拖动
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
 			if event.pressed:

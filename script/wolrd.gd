@@ -31,11 +31,13 @@ const DECORATION_TEXTURES: Array[Texture2D] = [
 # ==================== 机器人 ====================
 const INITIAL_ROBOT_COUNT := 0
 const REPRODUCE_INTERVAL := 15.0      # 繁殖能力：每隔多少秒自动生成一个机器人
+const REPRODUCE_CHECK_INTERVAL := 0.5 # 繁殖/数量检查降频，避免每帧遍历整棵机器人容器
 
 # 玩家在场景里手动放置的矿点（按场景树顺序排列，开局全部隐藏）
 var _placed_patches: Array = []
 var _reveal_index: int = 0
 var _reproduce_timer: float = 0.0      # 繁殖计时
+var _reproduce_check_timer: float = 0.0  # 繁殖检查降频计时
 
 
 func _ready() -> void:
@@ -82,18 +84,56 @@ func _apply_restore() -> void:
 		if is_instance_valid(_placed_furnaces[_reveal_furnace_index]):
 			_placed_furnaces[_reveal_furnace_index].set_active(true)
 		_reveal_furnace_index += 1
-	# 机器人：恢复存档时的数量（繁殖产生的也计入），不超过当前上限
+	# 矿点耐久（隐藏的矿点也一并恢复，避免读档把低耐久矿点“免费回满”）
+	var patch_durability := GameManager.get_restore_patch_durability()
+	for child in get_children():
+		if child is OrePatch and patch_durability.has(String(child.name)):
+			child.set_durability(float(patch_durability[String(child.name)]))
+			child.refresh_visual()
+	# 精炼炉：待烧矿 / 炉温 / 烧制进度（炉子挂在 RobotContainer 下）
+	for st in GameManager.get_restore_furnaces():
+		var f := robot_container.get_node_or_null(NodePath(String(st.get("name", ""))))
+		if f is RefiningFurnace:
+			f.restore_state(int(st.get("ore", 0)), float(st.get("heat", RefiningFurnace.HEAT_MAX)), float(st.get("smelt", 0.0)))
+	# 地上未回收的掉落物：按存档位置重新生成
+	for d in GameManager.get_restore_drops():
+		var drop := DROPPED_ITEM_SCENE.instantiate() as DroppedItem
+		drop.global_position = d.get("pos", Vector2.ZERO)
+		drop.item_type = String(d.get("type", "copper"))
+		drop.amount = int(d.get("amount", 1))
+		drop_container.add_child(drop)
+	# 机器人：新版存档按每条记录恢复位置 / 背包 / 记忆
+	var robot_states: Array = GameManager.get_restore_robots()
 	var robots_target := mini(GameManager.get_restore_robot_count(), _get_robot_max())
-	while _count_robots() < robots_target:
-		if not _spawn_robot():
-			break
-	# 机器人记忆的矿区：按生成顺序逐个还原
-	_restore_robot_memory()
+	if not robot_states.is_empty():
+		for i in mini(robots_target, robot_states.size()):
+			var st: Dictionary = robot_states[i]
+			var robot := _spawn_robot(st.get("pos", Vector2.INF))
+			if robot == null:
+				break
+			robot.set_carry_count(int(st.get("carry", 0)))
+			robot.inherit_patches(_resolve_patch_names(st.get("memory", [])))
+	else:
+		# 旧版存档：只按生成顺序恢复数量 + 记忆
+		while _count_robots() < robots_target:
+			if _spawn_robot() == null:
+				break
+		_restore_robot_memory()
 	GameManager.clear_restore_mode()
 	print("已从存档恢复：机器人 %d / 矿点 %d / 炉子 %d" % [_count_robots(), _reveal_index, _reveal_furnace_index])
 
 
-# 按存档顺序给机器人还原已记忆的矿区（存档存的是节点名，这里按名字找回 OrePatch）
+# 把存档里的矿点节点名解析成当前场景里的 OrePatch
+func _resolve_patch_names(names: Array) -> Array:
+	var patches: Array = []
+	for patch_name in names:
+		var node := get_node_or_null(NodePath(String(patch_name)))
+		if node != null and node is OrePatch:
+			patches.append(node)
+	return patches
+
+
+# 按存档顺序给机器人还原已记忆的矿区（旧版存档字段，按生成顺序匹配）
 func _restore_robot_memory() -> void:
 	var memories: Array = GameManager.get_restore_robot_memory()
 	if memories.is_empty():
@@ -104,12 +144,7 @@ func _restore_robot_memory() -> void:
 			continue
 		if idx >= memories.size():
 			break
-		var patches: Array = []
-		for patch_name in memories[idx]:
-			var node := get_node_or_null(NodePath(String(patch_name)))
-			if node != null and node is OrePatch:
-				patches.append(node)
-		(child as Robot).inherit_patches(patches)
+		(child as Robot).inherit_patches(_resolve_patch_names(memories[idx]))
 		idx += 1
 
 
@@ -191,20 +226,23 @@ func _count_robots() -> int:
 	return n
 
 
-# 生成一个机器人，随机放在仓库周围；达到数量上限时返回 false
-func _spawn_robot() -> bool:
+# 生成一个机器人：at_position 缺省时随机放在炉子周围；达到数量上限时返回 null
+func _spawn_robot(at_position: Vector2 = Vector2.INF) -> Robot:
 	if _count_robots() >= _get_robot_max():
-		return false
+		return null
 	var robot := ROBOT_SCENE.instantiate() as Robot
-	var angle := randf() * TAU
-	var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
-	robot.global_position = furnace.global_position + offset
+	if at_position == Vector2.INF:
+		var angle := randf() * TAU
+		var offset := Vector2(cos(angle), sin(angle)) * TILE_SIZE * 1.5
+		robot.global_position = furnace.global_position + offset
+	else:
+		robot.global_position = at_position
 	robot_container.add_child(robot)
 	_inherit_patches(robot)
-	# 第一个机器人出现时，在上方提示框提示如何指挥机器人挖矿
-	if _count_robots() == 1:
+	# 第一个机器人出现时，在上方提示框提示如何指挥机器人挖矿（读档恢复时不重复提示）
+	if _count_robots() == 1 and not GameManager.restore_mode:
 		_show_first_robot_hint()
-	return true
+	return robot
 
 
 # 上方提示框是队列播放，不会与其它提示互相抵消
@@ -242,9 +280,12 @@ func _sync_all_patches() -> void:
 			(child as Robot).inherit_patches(all_patches)
 
 
-# 每帧驱动繁殖计时
+# 每帧驱动繁殖计时（降频到 0.5 秒检查一次，避免每帧遍历机器人容器）
 func _process(delta: float) -> void:
-	_tick_reproduce(delta)
+	_reproduce_check_timer -= delta
+	if _reproduce_check_timer <= 0.0:
+		_reproduce_check_timer = REPRODUCE_CHECK_INTERVAL
+		_tick_reproduce(REPRODUCE_CHECK_INTERVAL)
 	# 自动保存计时
 	_autosave_timer += delta
 	if _autosave_timer >= AUTOSAVE_INTERVAL:
@@ -261,7 +302,7 @@ func _tick_reproduce(delta: float) -> void:
 	_reproduce_timer += delta
 	if _reproduce_timer >= REPRODUCE_INTERVAL:
 		_reproduce_timer = 0.0
-		if _spawn_robot():
+		if _spawn_robot() != null:
 			print("机器人繁殖，当前数量 %d" % _count_robots())
 
 
@@ -333,13 +374,16 @@ func _collect_placed_patches() -> void:
 func _on_tech_unlocked(tech_id: String) -> void:
 	if tech_id == "unlock_more_ores":
 		await get_tree().create_timer(0.3).timeout
+		# 等待期间场景可能已被释放（退出 / 回主菜单）
+		if not is_inside_tree():
+			return
 		_reveal_next_patch()
 	elif tech_id == "ore_durability":
 		for child in get_children():
 			if child is OrePatch:
 				child.refill_to_max()
 	elif tech_id == "add_robot":
-		if not _spawn_robot():
+		if _spawn_robot() == null:
 			# 正常情况下不会发生（购买前 can_unlock_tech 已判定过上限）。
 			# 真到了这里说明两处计数口径又不一致了，铜锭已被扣掉，必须报警排查。
 			push_warning("添加机器人失败：已扣除铜锭但未生成机器人（机器人 %d / 上限 %d）"
@@ -379,13 +423,20 @@ func _set_patch_active(node: Node, active: bool) -> void:
 	node.visible = active
 	if node is Ore:
 		node.input_pickable = active
-	if active and node is OrePatch and node.has_method("refresh_visual"):
-		# 刚 reveal：强制刷新一次外观（隐藏期间跳过了视觉更新）
-		node.refresh_visual()
+	if node is OrePatch:
+		# 隐藏的矿区完全停止逐帧耐久恢复计算，等 reveal 时再恢复
+		node.set_process(active)
+		if active and node.has_method("refresh_visual"):
+			# 刚 reveal：强制刷新一次外观（隐藏期间跳过了视觉更新）
+			node.refresh_visual()
 	for child in node.get_children():
 		if child is Ore:
 			child.visible = active
 			child.input_pickable = active
+			# 隐藏矿点同时关掉点击碰撞形状，避免不可见矿格仍参与鼠标拾取
+			var shape := child.get_node_or_null("CollisionShape2D") as CollisionShape2D
+			if shape != null:
+				shape.disabled = not active
 
 
 # ==================== 矿物掉落回调 ====================

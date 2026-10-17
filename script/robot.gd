@@ -8,8 +8,8 @@ class_name Robot
 @export var carry_capacity: int = 1          # 携带上限
 
 const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类型（目前只有铜矿）
-@export var deposit_range: float = 200.0     # 卸货判定距离：需大于炉体硬碰撞体(SolidBody 240×240，对角半宽约170+机器人半径22)，
-											 # 否则机器人直线冲炉被硬碰撞挡住，永远到不了卸货点卡在炉前
+@export var deposit_range: float = 220.0     # 卸货判定距离：炉体硬碰撞 240×240，角点半宽约 170 + 机器人半径 35 ≈ 205，
+											 # 取 220 留余量；否则从斜角回炉会被碰撞挡住、永远触发不了卸货
 
 # 挖到矿时从头顶飞出、再飞进机器人身体的矿物图标
 const MINE_ITEM_TEXTURE: Texture2D = preload("res://art/Ore/Item_Ore.png")
@@ -34,6 +34,10 @@ var _command_token: int = 0                  # 每次指派新目标 +1，用于
 var _original_modulate: Color = Color.WHITE
 var known_patches: Array = []                # 记忆的矿区（OrePatch 节点引用，而非单个矿点格子）
 var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫秒），防止来回倒腾
+var _mining_session: int = 0                 # 采矿会话号：用于矿格占用的令牌校验
+var _claimed_ore: Node2D = null              # 当前已占用的矿格（任何命令/退出路径都要释放）
+var _anim_durations: Dictionary = {}         # 一次性动画时长缓存（mine_start / mine_end）
+var _swap_timer: float = 0.0                 # 资源交换检查计时（降频）
 
 
 # ==================== 生命周期 ====================
@@ -50,6 +54,8 @@ func _ready() -> void:
 	if anim:
 		_original_modulate = anim.modulate
 		_play_anim("idle")
+	# 炉子列表缓存可能来自上一局的物理帧（静态缓存），生成时强制刷新一次
+	_furnaces_frame = -1
 	_furnace = _find_nearest_furnace()
 	GameManager.robot_selected.connect(_on_robot_selected)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
@@ -57,6 +63,10 @@ func _ready() -> void:
 	_update_carry_capacity()
 	_update_mine_time()
 	_update_move_speed()
+	_cache_anim_durations()
+	# 随机相位：避免读档批量生成时所有机器人同一帧集中决策/交换，形成周期性尖峰
+	_decide_timer = randf() * DECIDE_INTERVAL
+	_swap_timer = randf() * SWAP_CHECK_INTERVAL
 
 
 # 科技升级回调：背包容量/采集速度/移动速度变化时刷新对应属性
@@ -74,10 +84,10 @@ func _update_carry_capacity() -> void:
 	carry_capacity = 1 + GameManager.get_tech_level("backpack_capacity")
 
 
-# 根据「采集速度」科技等级刷新每次挖矿耗时：基础 2，每级 -0.25
+# 根据「采集速度」科技等级刷新每次挖矿耗时：基础 2，每级 -0.25（留最小间隔防止异常等级导致 0/负数）
 func _update_mine_time() -> void:
 	var level: int = GameManager.get_tech_level("mine_speed")
-	mine_time = 2.0 - 0.25 * float(level)
+	mine_time = maxf(0.1, 2.0 - 0.25 * float(level))
 
 
 # 根据「移动速度」科技等级刷新移动速度：基础 80，每级增量 [60, 100, 160]
@@ -85,7 +95,8 @@ const MOVE_SPEED_INCREMENTS: PackedFloat64Array = [60.0, 100.0, 160.0]
 func _update_move_speed() -> void:
 	var level: int = GameManager.get_tech_level("move_speed")
 	var speed: float = 80.0
-	for i in range(level):
+	# 索引夹紧：异常存档里的等级超过增量表长度时不越界
+	for i in range(mini(level, MOVE_SPEED_INCREMENTS.size())):
 		speed += MOVE_SPEED_INCREMENTS[i]
 	move_speed = speed
 
@@ -180,6 +191,7 @@ func _get_patch_pos(patch: Node) -> Vector2:
 func set_mine_target(ore: Node2D) -> void:
 	if ore == null or not is_instance_valid(ore):
 		return
+	_release_claim()
 	var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
 	_remember_patch(patch)
 	_command_token += 1
@@ -191,6 +203,7 @@ func set_mine_target(ore: Node2D) -> void:
 # ==================== 外部命令：手动返回仓库卸货 ====================
 # target_furnace 为空时自动选择离自己最近的精炼炉
 func command_return(target_furnace: RefiningFurnace = null) -> void:
+	_release_claim()
 	_command_token += 1
 	_target_ore = null
 	_enter_returning(target_furnace)
@@ -204,15 +217,23 @@ func _enter_returning(target_furnace: RefiningFurnace = null) -> void:
 		_furnace = target_furnace
 	elif _has_priority_sort() or _furnace == null or not is_instance_valid(_furnace):
 		_furnace = _find_nearest_furnace()
+	# 没有可用炉子：直接回待机，避免在 RETURNING 与找炉之间无限循环
+	if _furnace == null or not is_instance_valid(_furnace) or not _furnace.is_active():
+		_furnace = null
+		_state = State.IDLE
+		return
 	_state = State.RETURNING
 
 
 # ==================== 每帧逻辑 ====================
 func _physics_process(delta: float) -> void:
 	# 机器人深度排序由父节点 robot_container 的 y_sort_enabled 自动处理（按 y 坐标，下方遮盖上方）
-	# 挖矿中不参与交换，避免干扰采矿循环
+	# 挖矿中不参与交换，避免干扰采矿循环；交换检查降频到 0.5 秒一次
 	if _state != State.MINING:
-		_try_resource_swap()
+		_swap_timer -= delta
+		if _swap_timer <= 0.0:
+			_swap_timer = SWAP_CHECK_INTERVAL
+			_try_resource_swap()
 	match _state:
 		State.IDLE:
 			_tick_idle(delta)
@@ -235,6 +256,7 @@ const SEPARATION_STRENGTH := 160.0        # 推开力度
 const DENSITY_RADIUS := 150.0             # 密度感知半径：统计此范围内的其他机器人
 const DENSITY_PENALTY := 120.0            # 每个附近机器人折算的等效距离代价
 const SWAP_RANGE := 60.0                  # 资源交换：与此距离内的同伴转交矿物
+const SWAP_CHECK_INTERVAL := 0.5          # 资源交换检查间隔（秒），避免每帧 O(N²) 扫描
 
 
 # 每物理帧只查询一次 "robots" 分组供全脚本复用，避免避让/密度/交换各自反复分配数组
@@ -249,19 +271,58 @@ func _get_robots() -> Array:
 	return _robots_buffer
 
 
+# 每物理帧只查询一次 "furnace" 分组供全脚本复用
+static var _furnaces_frame: int = -1
+static var _furnaces_buffer: Array = []
+
+func _get_furnaces() -> Array:
+	var f := Engine.get_physics_frames()
+	if f != _furnaces_frame:
+		_furnaces_frame = f
+		_furnaces_buffer = get_tree().get_nodes_in_group("furnace")
+	return _furnaces_buffer
+
+
+# 分离力空间网格：每物理帧构建一次，机器人只检查自身 3×3 单元格，避免满编时 O(N²)
+const SEPARATION_CELL := 48.0
+static var _sep_grid_frame: int = -1
+static var _sep_grid: Dictionary = {}
+
+static func _sep_cell(pos: Vector2) -> Vector2i:
+	return Vector2i(floori(pos.x / SEPARATION_CELL), floori(pos.y / SEPARATION_CELL))
+
+
 func _get_separation_velocity() -> Vector2:
+	var frame := Engine.get_physics_frames()
+	if frame != _sep_grid_frame:
+		_sep_grid_frame = frame
+		_sep_grid.clear()
+		for r in _get_robots():
+			if not is_instance_valid(r):
+				continue
+			var r2d := r as Node2D
+			if r2d == null:
+				continue
+			var key := _sep_cell(r2d.global_position)
+			if not _sep_grid.has(key):
+				_sep_grid[key] = []
+			_sep_grid[key].append(r2d)
+	var cell := _sep_cell(global_position)
 	var sep := Vector2.ZERO
-	var others: Array = _get_robots()
-	for other in others:
-		if other == self or not is_instance_valid(other):
-			continue
-		var other2d := other as Node2D
-		if other2d == null:
-			continue
-		var diff: Vector2 = global_position - other2d.global_position
-		var d := diff.length()
-		if d > 0.001 and d < SEPARATION_RADIUS:
-			sep += diff.normalized() * (SEPARATION_RADIUS - d) / SEPARATION_RADIUS * SEPARATION_STRENGTH
+	var r2 := SEPARATION_RADIUS * SEPARATION_RADIUS
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var key := cell + Vector2i(dx, dy)
+			if not _sep_grid.has(key):
+				continue
+			for other in _sep_grid[key]:
+				if other == self or not is_instance_valid(other):
+					continue
+				var diff: Vector2 = global_position - other.global_position
+				var d2 := diff.length_squared()
+				if d2 > 0.0001 and d2 < r2:
+					var d := sqrt(d2)
+					sep += diff / d * (SEPARATION_RADIUS - d) / SEPARATION_RADIUS * SEPARATION_STRENGTH
 	return sep
 
 
@@ -289,14 +350,16 @@ const FURNACE_AVOID_DIST := 230.0   # 进入这个距离就开始绕（原 330 �
 
 # skip 传目标炉子本身：回程卸货需要径直靠近它，不绕
 func _apply_furnace_avoidance(dir: Vector2, skip: Node2D = null) -> Vector2:
-	for node in get_tree().get_nodes_in_group("furnace"):
+	var avoid_sq := FURNACE_AVOID_DIST * FURNACE_AVOID_DIST
+	for node in _get_furnaces():
 		var f := node as Node2D
 		if f == null or f == skip:
 			continue
 		var to_f: Vector2 = f.global_position - global_position
-		var dist := to_f.length()
-		if dist >= FURNACE_AVOID_DIST or dist <= 0.001:
+		var dist_sq := to_f.length_squared()
+		if dist_sq >= avoid_sq or dist_sq <= 0.000001:
 			continue
+		var dist := sqrt(dist_sq)
 		if dir.dot(to_f / dist) <= 0.2:
 			continue  # 前进方向不是冲着炉子，不用绕
 		var tangent := (to_f / dist).rotated(PI * 0.5)
@@ -312,6 +375,7 @@ func _tick_moving() -> void:
 	if _target_ore == null or not is_instance_valid(_target_ore):
 		# 目标丢了
 		_target_ore = null
+		_release_claim()
 		_go_idle_or_return()
 		return
 
@@ -336,10 +400,9 @@ func _tick_moving() -> void:
 
 # 找离自己最近的精炼炉（多炉时自动分配，避免全涌向同一个）
 func _find_nearest_furnace() -> Node2D:
-	var furnaces := get_tree().get_nodes_in_group("furnace")
 	var best: Node2D = null
 	var best_dist := INF
-	for f in furnaces:
+	for f in _get_furnaces():
 		if not is_instance_valid(f):
 			continue
 		var d := global_position.distance_to(f.global_position)
@@ -378,14 +441,18 @@ func _start_mining() -> void:
 		return
 	var ore := _target_ore
 	if ore == null or not is_instance_valid(ore) or not ore.has_method("try_claim"):
+		_release_claim()
 		_target_ore = null
 		_state = State.IDLE
 		return
-	if not ore.try_claim(self):
+	# 每次采矿会话分配一个令牌：旧协程用旧令牌释放时不会误清掉新会话的占用
+	_mining_session += 1
+	var session := _mining_session
+	if not _claim_ore(ore, session):
 		# 该格正被别的机器人采：改去同矿区内另一个空闲矿点，避免都挤在同一格
 		var patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
 		var alt: Node2D = _find_free_ore_in(patch)
-		if alt != null and alt.try_claim(self):
+		if alt != null and _claim_ore(alt, session):
 			ore = alt
 			_target_ore = alt
 			# 新矿点可能超出采矿范围，保持移动状态继续靠近
@@ -403,7 +470,8 @@ func _start_mining() -> void:
 	# 等待期间被重新指派任务，本次采矿作废
 	if token != _command_token:
 		if is_instance_valid(ore):
-			ore.release(self)
+			ore.release(self, session)
+		_clear_claim_if(ore, session)
 		return
 	_play_anim("mine_loop")
 
@@ -415,7 +483,8 @@ func _start_mining() -> void:
 
 		# 期间被重新指派新矿点，本次循环作废
 		if token != _command_token:
-			ore.release(self)
+			ore.release(self, session)
+			_clear_claim_if(ore, session)
 			return
 		if not is_instance_valid(ore) or not ore.has_method("mine"):
 			break
@@ -423,13 +492,20 @@ func _start_mining() -> void:
 		if _has_fallow() and _is_ore_depleted(ore):
 			print("机器人 %s 检测到矿点耐久过低，放弃开采" % name)
 			break
+		# 矿点无法产出（例如独立 Ore 没有挂 OrePatch）时直接退出，避免背包不增长导致死循环
+		var owner_patch: Node = ore.get_patch() if ore.has_method("get_patch") else null
+		if owner_patch == null or not owner_patch.has_method("mine_once"):
+			break
+		# mine() 返回 false 是正常情况（一次交互未累计到掉落），不能据此退出
 		if ore.mine():
 			_carry_count += 1
 			_spawn_mine_item()
-			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
 
 	if is_instance_valid(ore):
-		ore.release(self)
+		ore.release(self, session)
+		_clear_claim_if(ore, session)
+	elif _claimed_ore != null and not is_instance_valid(_claimed_ore):
+		_claimed_ore = null
 	_target_ore = null
 
 	# 挖矿结束动画：播完再离开矿点
@@ -440,12 +516,36 @@ func _start_mining() -> void:
 		# 等待期间被重新指派任务，交给新任务流程处理
 		if end_token != _command_token:
 			return
+	_play_anim("idle")
 
 	# 背包装满：解锁「坐标点记忆、自动寻路」后自动回仓库，否则原地待命
 	if _carry_count >= carry_capacity and _has_auto_return():
 		_enter_returning()
 	else:
 		_state = State.IDLE
+
+
+# 占用一个矿格（记录到 _claimed_ore，确保任何退出路径都能释放）
+func _claim_ore(ore: Node2D, session: int) -> bool:
+	if ore == null or not is_instance_valid(ore) or not ore.has_method("try_claim"):
+		return false
+	if not ore.try_claim(self, session):
+		return false
+	_claimed_ore = ore
+	return true
+
+
+# 释放当前占用的矿格（新命令 / 目标丢失 / 场景切换兜底）
+func _release_claim() -> void:
+	if _claimed_ore != null and is_instance_valid(_claimed_ore):
+		_claimed_ore.release(self)
+	_claimed_ore = null
+
+
+# 旧会话退出时清空占用记录：若已有新会话重新占用了同一格，不能把新记录清掉
+func _clear_claim_if(ore: Node2D, session: int) -> void:
+	if _claimed_ore == ore and _mining_session == session:
+		_claimed_ore = null
 
 
 # 挖到矿时：头顶弹出矿物图标，再飞进机器人身体（挂在机器人下，自动跟随移动）
@@ -473,17 +573,32 @@ func _spawn_mine_item() -> void:
 func _start_deposit() -> void:
 	if _state == State.DEPOSITING:
 		return
+	# 炉子失效 / 被停用：保留背包货物，重新决定去向，避免矿物凭空消失
+	if _furnace == null or not is_instance_valid(_furnace) or not _furnace.is_active():
+		_furnace = null
+		_go_idle_or_return()
+		return
+	var token := _command_token
 	_state = State.DEPOSITING
+	_play_anim("idle")
 
 	# 把矿物投入精炼炉，进入烧制队列（产出铜锭）
-	if _furnace != null and is_instance_valid(_furnace):
-		_furnace.deposit_ore(_carry_count)
-		print("机器人 %s 投入 %d 个铜矿进精炼炉" % [name, _carry_count])
+	_furnace.deposit_ore(_carry_count)
 	_carry_count = 0
 
-	# 稍等一下再回去
+	# 稍等一下再回去（等待期间若被新命令打断，不要覆盖新状态）
 	await get_tree().create_timer(0.3).timeout
-	_state = State.IDLE
+	if token == _command_token and _state == State.DEPOSITING:
+		_state = State.IDLE
+
+
+# 读档恢复背包数量
+func get_carry_count() -> int:
+	return _carry_count
+
+
+func set_carry_count(value: int) -> void:
+	_carry_count = clampi(value, 0, carry_capacity)
 
 
 # ==================== 工具：回到待机 / 回仓库 ====================
@@ -605,15 +720,43 @@ func _patch_score(patch: Node) -> float:
 	return score
 
 
+# 密度统计空间网格：cell 边长 = 密度半径，3×3 邻域即可覆盖，避免每次评分扫描全部机器人
+const DENSITY_CELL := DENSITY_RADIUS
+static var _density_grid_frame: int = -1
+static var _density_grid: Dictionary = {}
+
 # 统计某位置半径内的其他机器人数（密度感知）
 func _count_robots_near(pos: Vector2, radius: float) -> int:
+	var frame := Engine.get_physics_frames()
+	if frame != _density_grid_frame:
+		_density_grid_frame = frame
+		_density_grid.clear()
+		for r in _get_robots():
+			if not is_instance_valid(r):
+				continue
+			var r2d := r as Node2D
+			if r2d == null:
+				continue
+			var key := Vector2i(
+				floori(r2d.global_position.x / DENSITY_CELL),
+				floori(r2d.global_position.y / DENSITY_CELL)
+			)
+			if not _density_grid.has(key):
+				_density_grid[key] = []
+			_density_grid[key].append(r2d)
+	var cell := Vector2i(floori(pos.x / DENSITY_CELL), floori(pos.y / DENSITY_CELL))
 	var count := 0
-	for r in _get_robots():
-		if r == self or not is_instance_valid(r):
-			continue
-		var r2d := r as Node2D
-		if r2d != null and r2d.global_position.distance_to(pos) <= radius:
-			count += 1
+	var r2 := radius * radius
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var key := cell + Vector2i(dx, dy)
+			if not _density_grid.has(key):
+				continue
+			for other in _density_grid[key]:
+				if other == self or not is_instance_valid(other):
+					continue
+				if other.global_position.distance_squared_to(pos) <= r2:
+					count += 1
 	return count
 
 
@@ -644,8 +787,8 @@ func _try_resource_swap() -> void:
 	var cd: int = Time.get_ticks_msec() + 2000
 	_swap_cooldown_until = cd
 	other._swap_cooldown_until = cd
-	other.command_return()
-	print("机器人 %s 向 %s 转交 %d 个矿物" % [name, other.name, give])
+	if other._state != State.RETURNING:
+		other.command_return()
 	# 自己货已转空且正在回仓库：回到待机继续挖矿，避免空跑
 	if _carry_count == 0 and _state == State.RETURNING:
 		_state = State.IDLE
@@ -654,7 +797,7 @@ func _try_resource_swap() -> void:
 # 寻找附近可接收矿物的同伴（背包未满、比自己货少、且不在冷却中，避免互相倒腾）
 func _find_swap_partner() -> Robot:
 	var best: Robot = null
-	var best_dist: float = SWAP_RANGE
+	var best_dist2: float = SWAP_RANGE * SWAP_RANGE
 	var now: int = Time.get_ticks_msec()
 	for r in _get_robots():
 		if r == self or not is_instance_valid(r):
@@ -662,13 +805,16 @@ func _find_swap_partner() -> Robot:
 		var other := r as Robot
 		if other == null:
 			continue
+		# 不打断正在挖矿 / 卸货的同伴
+		if other._state == State.MINING or other._state == State.DEPOSITING:
+			continue
 		if other._swap_cooldown_until > now:
 			continue
 		if other._carry_count >= other.carry_capacity or other._carry_count >= _carry_count:
 			continue
-		var d := global_position.distance_to(other.global_position)
-		if d <= best_dist:
-			best_dist = d
+		var d2 := global_position.distance_squared_to(other.global_position)
+		if d2 <= best_dist2:
+			best_dist2 = d2
 			best = other
 	return best
 
@@ -743,12 +889,26 @@ func _update_walk_anim(dir: Vector2) -> void:
 
 # 播放动画并返回其时长（秒），供计时器等待一次性动画播完
 func _play_anim_get_duration(anim_name: String) -> float:
+	_play_anim(anim_name)
+	if _anim_durations.has(anim_name):
+		return float(_anim_durations[anim_name])
+	var duration := _compute_anim_duration(anim_name)
+	_anim_durations[anim_name] = duration
+	return duration
+
+
+# 预计算采矿一次性动画时长：动画帧数据是静态的，无需每次挖矿重新累加
+func _cache_anim_durations() -> void:
+	for anim_name in ["mine_start", "mine_end"]:
+		_anim_durations[anim_name] = _compute_anim_duration(anim_name)
+
+
+func _compute_anim_duration(anim_name: String) -> float:
 	if anim == null or anim.sprite_frames == null:
 		return 0.0
 	var sf: SpriteFrames = anim.sprite_frames
 	if not sf.has_animation(anim_name):
 		return 0.0
-	_play_anim(anim_name)
 	var total := 0.0
 	for i in sf.get_frame_count(anim_name):
 		total += sf.get_frame_duration(anim_name, i)

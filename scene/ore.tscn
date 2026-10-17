@@ -7,6 +7,8 @@
 size = Vector2(64, 64)
 
 [node name="Ore" type="Area2D" unique_id=71541184]
+monitoring = false
+monitorable = false
 script = ExtResource("1_mmjia")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=81746455]

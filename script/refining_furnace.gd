@@ -48,6 +48,7 @@ var _burning: bool = false           # 本炉是否正在燃烧（用于炉火�
 var _heat: float = HEAT_MAX          # 当前炉温（0~100）
 var _fan_cooldown: float = 0.0       # 鼓风冷却计时
 var _warn_pulse: float = 0.0         # 低炉温光圈呼吸相位
+var _particle_amount: int = -1       # 上次设置的粒子数量（只在量化值变化时重建粒子缓冲）
 
 
 func _ready() -> void:
@@ -57,6 +58,13 @@ func _ready() -> void:
 		input_event.connect(_on_input_event)
 	_align_to_grid()
 	_setup_burning_visual()
+
+
+# 场景销毁（回主菜单 / 退出）时兜底退出炉火音效计数，否则 GameManager 的计数会残留
+func _exit_tree() -> void:
+	if _burning:
+		_burning = false
+		GameManager.furnace_burning_stopped()
 
 
 func is_active() -> bool:
@@ -90,6 +98,9 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# 机器人优先级更高：点在机器人身上时让给机器人选中，本次不鼓风 / 不命令返回
 		if Robot.is_point_over_robot(get_global_mouse_position()):
+			return
+		# 掉落物优先级高于炉子：点重叠的掉落物时让给掉落物回收
+		if DroppedItem.is_point_over_any_item(get_global_mouse_position()):
 			return
 		get_viewport().set_input_as_handled()
 		var robot = GameManager.selected_robot
@@ -180,7 +191,10 @@ func _apply_heat_visual() -> void:
 	if _burning_particles == null or not _burning_particles.emitting:
 		return
 	var r := get_heat_ratio()
-	_burning_particles.amount = int(round(lerpf(6.0, 26.0, r)))
+	var amount: int = int(round(lerpf(6.0, 26.0, r)))
+	if amount != _particle_amount:
+		_particle_amount = amount
+		_burning_particles.amount = amount
 	_burning_particles.modulate = Color(1, 1, 1, lerpf(0.35, 1.0, r))
 
 
@@ -323,14 +337,16 @@ func _get_double_chance() -> float:
 	return DOUBLE_SMELT_BASE_CHANCE + CRIT_CHANCE_PER_LEVEL * float(crit_level)
 
 
-# 当前烧制耗时：基础 2.0 秒，每级「煅烧速度」-0.25 秒
+# 当前烧制耗时：基础 2.0 秒，每级「煅烧速度」-0.25 秒（留最小间隔防止除零/节奏异常）
 func _get_smelt_interval() -> float:
 	var level := GameManager.get_tech_level("smelt_speed")
-	return SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level)
+	return maxf(0.1, SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level))
 
 
 # 投入铜矿：存进本炉独立库存（机器人卸货 / 掉落物飞入）
 func deposit_ore(amount: int) -> void:
+	if amount <= 0:
+		return
 	_ore_stock += amount
 	queue_redraw()
 
@@ -338,6 +354,23 @@ func deposit_ore(amount: int) -> void:
 # 本炉当前待烧铜矿数量（供外部查询，如显示/调试）
 func get_ore_stock() -> int:
 	return _ore_stock
+
+
+func get_heat() -> float:
+	return _heat
+
+
+func get_smelt_timer() -> float:
+	return _smelt_timer
+
+
+# 读档恢复：待烧矿 / 炉温 / 烧制进度
+func restore_state(ore_stock: int, heat: float, smelt_timer: float) -> void:
+	_ore_stock = maxi(0, ore_stock)
+	_heat = clampf(heat, 0.0, HEAT_MAX)
+	_smelt_timer = maxf(0.0, smelt_timer)
+	_particle_amount = -1
+	queue_redraw()
 
 
 # 烧制进度条 + 「+N」浮动文字（进度条仅在本炉库存有铜矿时显示）
@@ -423,9 +456,11 @@ func _align_to_grid() -> void:
 	position.x = floor(position.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE * 0.5
 	position.y = floor(position.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE * 0.5
 	if collision_shape_2d.shape is RectangleShape2D:
-		var rect := collision_shape_2d.shape as RectangleShape2D
+		# 复制一份再改：场景 sub_resource 默认被所有实例共享，直接改会影响全部炉子
+		var rect := collision_shape_2d.shape.duplicate() as RectangleShape2D
 		rect.size.x = round(rect.size.x / TILE_SIZE) * TILE_SIZE
 		rect.size.y = round(rect.size.y / TILE_SIZE) * TILE_SIZE
+		collision_shape_2d.shape = rect
 
 
 func set_center_to(world_pos: Vector2) -> void:

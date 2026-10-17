@@ -95,6 +95,12 @@ func _ready() -> void:
 	_settings_root.visible = false
 
 
+# 直接关闭窗口时也保存音量设置
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		GameManager.save_options()
+
+
 # ==================== 主菜单按钮 ====================
 func _on_start_pressed() -> void:
 	if GameManager.has_save():
@@ -119,16 +125,19 @@ func _on_settings_pressed() -> void:
 
 
 func _on_quit_pressed() -> void:
+	GameManager.save_options()
 	get_tree().quit()
 
 
 func _close_settings() -> void:
+	GameManager.save_options()
 	_settings_root.visible = false
 
 
 # ==================== 覆盖存档确认框 ====================
 func _begin_new_game() -> void:
-	# 开始新游戏：清空进度，旧存档会在退出时被新进度覆盖
+	# 开始新游戏：删除旧存档并清空进度，避免中途退出后“继续游戏”回到上一局
+	GameManager.delete_save()
 	GameManager.reset_progress()
 	get_tree().change_scene_to_file(WORLD_SCENE)
 
@@ -192,7 +201,13 @@ func _apply_right_width(img: TextureRect, width: int) -> void:
 
 
 func _tween_to_left(img: TextureRect, left: float) -> void:
+	# 先取消上一次展开/收起动画，避免鼠标快速划过时多个 tween 同时改 offset_left 造成抖动
+	if img.has_meta("slide_tween"):
+		var old: Tween = img.get_meta("slide_tween")
+		if old != null and old.is_valid():
+			old.kill()
 	var tween := create_tween()
+	img.set_meta("slide_tween", tween)
 	tween.tween_property(img, "offset_left", left, 0.12) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 

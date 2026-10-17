@@ -14,6 +14,7 @@ const ORE_TEXTURES: Array[Texture2D] = [
 
 var _patch: Node2D = null
 var _miner: Node = null              # 当前占据这个格子的机器人（一个格同时只能一个机器人采）
+var _miner_token: int = 0            # 占用会话令牌：区分同一机器人的新旧采矿会话，避免旧协程误释放
 
 
 func _ready() -> void:
@@ -45,28 +46,7 @@ func _on_input_event(_viewport, event, _shape_idx):
 
 # 判断某世界坐标是否被掉落物覆盖（掉落物优先级高于挖矿）
 func _is_point_over_dropped_item(point: Vector2) -> bool:
-	var items := get_tree().get_nodes_in_group("dropped_items")
-	for item in items:
-		if not is_instance_valid(item):
-			continue
-		var dropped := item as DroppedItem
-		if dropped == null or not dropped.input_pickable:
-			continue
-		var shape: Shape2D = null
-		for child in dropped.get_children():
-			if child is CollisionShape2D and child.shape != null:
-				shape = child.shape
-				break
-		if shape == null:
-			continue
-		var local := dropped.to_local(point)
-		if shape is RectangleShape2D:
-			if Rect2(-shape.size * 0.5, shape.size).has_point(local):
-				return true
-		elif shape is CircleShape2D:
-			if local.length() <= shape.radius:
-				return true
-	return false
+	return DroppedItem.is_point_over_any_item(point)
 
 
 # 玩家直接开采一次（不经过机器人），掉落矿物由矿点信号通知外部。
@@ -90,20 +70,27 @@ func mine() -> bool:
 
 
 # ==================== 占地：一个格同时只能一个机器人采 ====================
-func try_claim(miner: Node) -> bool:
+func try_claim(miner: Node, token: int = 0) -> bool:
+	# 占格机器人已被释放：视为空闲，避免失效引用把矿格永久锁死
+	if _miner != null and not is_instance_valid(_miner):
+		_miner = null
+		_miner_token = 0
 	if _miner != null and _miner != miner:
 		return false
 	_miner = miner
+	_miner_token = token
 	return true
 
 
-func release(miner: Node) -> void:
-	if _miner == miner:
+func release(miner: Node, token: int = -1) -> void:
+	# token >= 0 时只释放对应会话，旧采矿协程不会误释放新会话的占用
+	if _miner == miner and (token < 0 or token == _miner_token):
 		_miner = null
+		_miner_token = 0
 
 
 func is_occupied() -> bool:
-	return _miner != null
+	return _miner != null and is_instance_valid(_miner)
 
 
 func get_patch() -> Node2D:

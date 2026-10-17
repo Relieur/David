@@ -18,6 +18,7 @@ func _ready() -> void:
 	add_to_group("robot_popup")
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
+	set_process(false)   # 未悬停时不需要逐帧跟随
 	reset_size()
 
 
@@ -30,6 +31,7 @@ func show_for(robot: Robot) -> void:
 	_refresh_text()
 	reset_size()
 	visible = true
+	set_process(true)
 	_play_appear()
 
 
@@ -41,6 +43,7 @@ func hide_popup(robot: Robot = null) -> void:
 		_tween.kill()
 	_robot = null
 	visible = false
+	set_process(false)
 
 
 func _process(delta: float) -> void:

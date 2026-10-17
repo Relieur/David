@@ -14,7 +14,7 @@ const MINE_SPARK_SCENE: PackedScene = preload("res://scene/mine_spark.tscn")
 const BASE_INTERACT_TIME := 4        # 耐久正常时：每 4 次交互掉落 1 个矿物
 const LOW_DUR_INTERACT_TIME := 5     # 耐久 <= 15% 时：每 5 次交互掉落 1 个矿物
 const LOW_DURABILITY_THRESHOLD := 15.0
-const DURABILITY_PER_DROP := 7.0    # 每掉落 1 个矿物，耐久下降 10%
+const DURABILITY_PER_DROP := 7.0    # 每掉落 1 个矿物，耐久下降 7%（基础耐久 100 时）
 
 const GRID_SIZE := 64                # 每个矿石格子的尺寸
 
@@ -26,12 +26,14 @@ const GRID_SIZE := 64                # 每个矿石格子的尺寸
 var _interact_count: int = 0         # 距离下次掉落的当前交互计数
 var _ores: Array = []
 var _visual_ratio: float = -1.0      # 上次刷新视觉时的耐久比例（用于节流，避免每帧改所有矿石节点）
+var _center: Vector2 = Vector2.ZERO  # 矿区包围盒中心（静态，_ready 时算一次）
 
 
 func _ready() -> void:
 	add_to_group("ore_patch")
 	_collect_ores()
 	durability = _get_max_durability()
+	_center = _compute_center()
 	_update_visual()
 
 
@@ -50,6 +52,10 @@ func get_ores() -> Array:
 
 # 矿区中心的世界坐标（用于悬浮信息显示、距离评分等）
 func get_center() -> Vector2:
+	return _center
+
+
+func _compute_center() -> Vector2:
 	if _ores.is_empty():
 		return global_position
 	var min_pos := Vector2.INF
@@ -59,6 +65,8 @@ func get_center() -> Vector2:
 			continue
 		min_pos = min_pos.min(ore.position)
 		max_pos = max_pos.max(ore.position)
+	if min_pos == Vector2.INF:
+		return global_position
 	return global_position + (min_pos + max_pos) * 0.5
 
 
@@ -109,7 +117,17 @@ func get_durability_ratio() -> float:
 	var max_d := _get_max_durability()
 	if max_d <= 0.0:
 		return 0.0
-	return durability / max_d
+	return clampf(durability / max_d, 0.0, 1.0)
+
+
+# 存档用：当前耐久
+func get_durability() -> float:
+	return durability
+
+
+# 读档恢复耐久（夹紧到当前上限）
+func set_durability(value: float) -> void:
+	durability = clampf(value, 0.0, _get_max_durability())
 
 
 # 累计一次交互，满 interact_time 时掉 1 矿并降低耐久，返回是否掉落
@@ -133,7 +151,7 @@ func _register_interaction(fx_pos := Vector2.INF) -> bool:
 
 # 耐久越低矿点整体越暗（节流：比例变化小于 1% 时跳过，且隐藏矿点不做节点操作）
 func _update_visual() -> void:
-	var t := durability / _get_max_durability()
+	var t := clampf(durability / _get_max_durability(), 0.0, 1.0)
 	if absf(t - _visual_ratio) < 0.01:
 		return
 	_visual_ratio = t
@@ -161,7 +179,7 @@ func _process(delta: float) -> void:
 		return
 	var max_d := _get_max_durability()
 	if durability < max_d:
-		durability = minf(max_d, durability + _get_regen_rate() * delta)
+		durability = clampf(durability + _get_regen_rate() * delta, 0.0, max_d)
 		_update_visual()
 
 
@@ -184,6 +202,8 @@ func _draw() -> void:
 			continue
 		min_pos = min_pos.min(ore.position - half)
 		max_pos = max_pos.max(ore.position + half)
+	if min_pos == Vector2.INF:
+		return
 
 	var cx := (min_pos.x + max_pos.x) * 0.5
 	var bar_width := max_pos.x - min_pos.x
@@ -191,7 +211,7 @@ func _draw() -> void:
 	var bar_height := 8.0
 
 	draw_rect(Rect2(cx - bar_width * 0.5, bar_y, bar_width, bar_height), Color(0.15, 0.15, 0.15, 0.85))
-	var ratio := durability / _get_max_durability()
+	var ratio := clampf(durability / _get_max_durability(), 0.0, 1.0)
 	draw_rect(Rect2(cx - bar_width * 0.5, bar_y, bar_width * ratio, bar_height), _durability_color(ratio))
 
 
