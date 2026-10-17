@@ -42,6 +42,7 @@ var _last_grab_time: int = -1_000_000             # 上次 grab 播放时间（�
 
 var _ambient_volume: float = 1.0                  # 环境音音量（0~1）
 var _sfx_volume: float = 1.0                      # 其他声音音量（0~1，grab/drop/炉火）
+var _master_volume: float = 1.0                   # 总音量（0~1，同时缩放环境音与其他声音）
 
 
 func _ready() -> void:
@@ -88,14 +89,27 @@ func _vol_offset_db(vol: float) -> float:
 	return maxf(linear_to_db(vol), SILENT_DB)
 
 
-# 环境音当前目标音量（基础 db + 音量偏移）
+# 环境音当前目标音量（基础 db + 音量偏移 × 总音量）
 func _ambient_target_db() -> float:
-	return _ambient_db + _vol_offset_db(_ambient_volume)
+	return _ambient_db + _vol_offset_db(_ambient_volume * _master_volume)
 
 
 # 其他声音（炉火）当前目标音量
 func _stove_target_db() -> float:
-	return _stove_db + _vol_offset_db(_sfx_volume)
+	return _stove_db + _vol_offset_db(_sfx_volume * _master_volume)
+
+
+# 设置总音量（0~1），同时缩放环境音与其他声音，立即平滑过渡
+func set_master_volume(vol: float) -> void:
+	_master_volume = clampf(vol, 0.0, 1.0)
+	if _ambient_player != null and _ambient_player.playing:
+		_fade_to(_ambient_player, _ambient_target_db(), 0.15)
+	if _stove_player != null and _stove_player.playing:
+		_fade_to(_stove_player, _stove_target_db(), 0.15)
+
+
+func get_master_volume() -> float:
+	return _master_volume
 
 
 # 设置环境音音量（0~1），立即平滑过渡
@@ -173,7 +187,7 @@ func play_sfx(stream: AudioStream) -> void:
 	p.stream = stream
 	p.volume_db = SILENT_DB
 	p.play()
-	_fade_to(p, _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+	_fade_to(p, _vol_offset_db(_sfx_volume * _master_volume), SFX_FADE_IN)
 
 
 # 找一个空闲的一次性播放器，全忙则新建（动态扩容）
@@ -256,7 +270,7 @@ func play_sfx_at(stream: AudioStream, world_pos: Vector2, target_db: float) -> v
 	p.volume_db = SILENT_DB
 	p.play()
 	# 基础音量 + 其他声音音量偏移（grab/drop 受「其他声音」滑块控制）
-	_fade_to(p, target_db + _vol_offset_db(_sfx_volume), SFX_FADE_IN)
+	_fade_to(p, target_db + _vol_offset_db(_sfx_volume * _master_volume), SFX_FADE_IN)
 
 
 # 找一个空闲的 2D 播放器，全忙则新建（动态扩容）
@@ -527,3 +541,92 @@ func clear() -> void:
 	selected_robot = null
 	_player_mine_cooldown = 0.0
 	inventory_changed.emit(inventory)
+
+
+# ==================== 存档系统 ====================
+# 存档内容：库存 / 科技等级 / 研究所阶段 / 机器人数量 / 音量设置。
+# 矿点显示数量（1 + unlock_more_ores×3）与炉子启用数量（1 + add_furnace）
+# 可由科技等级直接推导，不单独存，由 wolrd.gd 在恢复时重建。
+const SAVE_PATH := "user://savegame.json"
+
+# wolrd.gd 的 _ready 检测：为 true 时按存档重建世界（机器人 / 矿点 / 炉子），完成后清除
+var restore_mode: bool = false
+var _restore_robot_count: int = 0        # 恢复时需要生成的机器人数（繁殖产生的机器人也计入）
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+# 保存当前进度（JSON）。退出游戏 / 自动保存时由 wolrd.gd 调用。
+func save_game() -> void:
+	var data := {
+		"version": 1,
+		"inventory": inventory,
+		"tech_levels": tech_levels,
+		"lab_stage": lab_stage,
+		"robot_count": get_tree().get_nodes_in_group("robots").size(),
+		"ambient_volume": _ambient_volume,
+		"sfx_volume": _sfx_volume,
+		"master_volume": _master_volume,
+	}
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		push_warning("存档写入失败：%s" % SAVE_PATH)
+		return
+	f.store_string(JSON.stringify(data))
+	f.close()
+
+
+# 读取存档到当前状态，成功后置 restore_mode = true（等待 wolrd 场景消费）。
+func load_game() -> bool:
+	if not has_save():
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return false
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not parsed is Dictionary:
+		push_warning("存档格式损坏，忽略")
+		return false
+	# JSON 反序列化的数字都是 float：库存 / 科技等级 / 机器人数量逐项转回 int
+	var inv: Dictionary = {}
+	for k in parsed.get("inventory", {}):
+		inv[k] = int(parsed["inventory"][k])
+	inventory = inv
+	var tl: Dictionary = {}
+	for k in parsed.get("tech_levels", {}):
+		tl[String(k)] = int(parsed["tech_levels"][k])
+	tech_levels = tl
+	lab_stage = int(parsed.get("lab_stage", 0))
+	_restore_robot_count = int(parsed.get("robot_count", 0))
+	set_ambient_volume(float(parsed.get("ambient_volume", 1.0)))
+	set_sfx_volume(float(parsed.get("sfx_volume", 1.0)))
+	set_master_volume(float(parsed.get("master_volume", 1.0)))
+	restore_mode = true
+	inventory_changed.emit(inventory)
+	return true
+
+
+func get_restore_robot_count() -> int:
+	return _restore_robot_count
+
+
+func clear_restore_mode() -> void:
+	restore_mode = false
+
+
+# 删除存档（开始新游戏覆盖旧存档前调用，语义更明确）
+func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
+# 开始新游戏：清空全部进度（等价旧存档被覆盖的起点状态）
+func reset_progress() -> void:
+	clear()
+	_tech_max_level_overrides = {}
+	lab_stage = 0
+	_restore_robot_count = 0
+	restore_mode = false

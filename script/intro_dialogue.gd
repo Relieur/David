@@ -54,6 +54,12 @@ func _ready() -> void:
 	modulate.a = 0.0
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.furnace_heat_empty.connect(_on_furnace_heat_empty)
+	# 继续游戏（读档）：跳过开场剧情与新手引导（老玩家已看过）
+	if GameManager.restore_mode:
+		_intro_done = true
+		_five_ingot_triggered = true
+		_heat_empty_triggered = true
+		return
 	# 开场剧情延迟 INTRO_DELAY 秒后出现（等待主界面/相机就绪）
 	await get_tree().create_timer(INTRO_DELAY).timeout
 	if not is_inside_tree():

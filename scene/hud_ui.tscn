@@ -8,7 +8,17 @@
 [ext_resource type="Texture2D" uid="uid://brtu8122h6bbc" path="res://art/UI/UI_RightText_BG.png" id="7_hud"]
 [ext_resource type="Texture2D" uid="uid://dneogqdi8gec0" path="res://art/UI/UI_HUD_ProgressBar_Frame.png" id="8_pb"]
 [ext_resource type="Texture2D" uid="uid://dp4rgbco7itty" path="res://art/UI/UI_HUD_ProgressBar_Fill.png" id="9_pb"]
-[ext_resource type="Texture2D" path="res://art/UI/UI_Dialogue_BG.png" id="10_dlg"]
+[ext_resource type="Texture2D" uid="uid://cr4ke6yy05gyp" path="res://art/UI/UI_Dialogue_BG.png" id="10_dlg"]
+[ext_resource type="Texture2D" uid="uid://dhei5fhtyt57f" path="res://art/SettingsPanel/UI_Bg_Settings.png" id="11_setbg"]
+[ext_resource type="Texture2D" uid="uid://chumhvap2aoou" path="res://art/SettingsPanel/UI_Btn_Close.png" id="12_btnclose"]
+[ext_resource type="Texture2D" uid="uid://by63r88ntqtkf" path="res://art/SettingsPanel/UI_Lab_Sfx.png" id="13_labsfx"]
+[ext_resource type="Texture2D" uid="uid://c75w0m5bl53oy" path="res://art/SettingsPanel/UI_Lab_MasterVolume.png" id="14_labmaster"]
+[ext_resource type="Texture2D" uid="uid://bv8dpufmhcqmn" path="res://art/SettingsPanel/UI_Lab_Music.png" id="15_labmusic"]
+[ext_resource type="Texture2D" uid="uid://c2ccyort4yrhk" path="res://art/SettingsPanel/UI_Slider_Track.png" id="16_track"]
+[ext_resource type="Texture2D" uid="uid://b4g1xmqt0qx88" path="res://art/SettingsPanel/UI_Slider_Fill.png" id="17_fill"]
+[ext_resource type="Texture2D" uid="uid://bt8tnaagn4xf" path="res://art/SettingsPanel/UI_Slider_Grabber_Empty.png" id="18_nograb"]
+[ext_resource type="Texture2D" uid="uid://dconyy5btnu4y" path="res://art/SettingsPanel/UI_Check_Checked.png" id="19_chk_on"]
+[ext_resource type="Texture2D" uid="uid://ki0xyek60gdr" path="res://art/SettingsPanel/UI_Check_Unchecked.png" id="20_chk_off"]
 
 [sub_resource type="Gradient" id="Grad_fade"]
 colors = PackedColorArray(0, 0, 0, 0.55, 0, 0, 0, 0)
@@ -24,44 +34,41 @@ fill_to = Vector2(0.5, 1)
 atlas = ExtResource("5_hud")
 region = Rect2(0, 470, 344, 393)
 
-[sub_resource type="StyleBoxFlat" id="SBF_settings"]
-content_margin_left = 30.0
-content_margin_top = 22.0
-content_margin_right = 30.0
-content_margin_bottom = 22.0
-bg_color = Color(0.09, 0.11, 0.05, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.705882, 0.87451, 0.266667, 1)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-
-[sub_resource type="StyleBoxFlat" id="SBF_setbtn"]
-content_margin_left = 24.0
-content_margin_top = 10.0
-content_margin_right = 24.0
-content_margin_bottom = 10.0
-bg_color = Color(0.117647, 0.14902, 0.058824, 0.882353)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.705882, 0.87451, 0.266667, 1)
-corner_radius_top_left = 7
-corner_radius_top_right = 7
-corner_radius_bottom_right = 7
-corner_radius_bottom_left = 7
-
 [sub_resource type="StyleBoxFlat" id="SBF_hideui"]
 bg_color = Color(0.682353, 0.819608, 0.309804, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
+
+[sub_resource type="AtlasTexture" id="AT_sfx_icon"]
+atlas = ExtResource("13_labsfx")
+region = Rect2(0, 0, 45, 48)
+
+[sub_resource type="AtlasTexture" id="AT_sfx_text"]
+atlas = ExtResource("13_labsfx")
+region = Rect2(61, 0, 34, 48)
+
+[sub_resource type="StyleBoxEmpty" id="SBE_slider"]
+
+[sub_resource type="AtlasTexture" id="AT_master_icon"]
+atlas = ExtResource("14_labmaster")
+region = Rect2(0, 0, 37, 44)
+
+[sub_resource type="AtlasTexture" id="AT_master_text"]
+atlas = ExtResource("14_labmaster")
+region = Rect2(58, 0, 49, 44)
+
+[sub_resource type="AtlasTexture" id="AT_music_icon"]
+atlas = ExtResource("15_labmusic")
+region = Rect2(0, 0, 35, 46)
+
+[sub_resource type="AtlasTexture" id="AT_music_text"]
+atlas = ExtResource("15_labmusic")
+region = Rect2(61, 0, 33, 46)
+
+[sub_resource type="StyleBoxFlat" id="SBF_quitbtn"]
+bg_color = Color(0.682353, 0.819608, 0.309804, 1)
 
 [node name="HudUI" type="Control" unique_id=290823036]
 layout_mode = 3
@@ -278,13 +285,12 @@ grow_vertical = 0
 theme_override_colors/font_color = Color(0.05, 0.07, 0.02, 1)
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("SBF_hideui")
-theme_override_styles/hover = SubResource("SBF_hideui")
 theme_override_styles/pressed = SubResource("SBF_hideui")
+theme_override_styles/hover = SubResource("SBF_hideui")
 theme_override_styles/focus = SubResource("SBF_hideui")
 text = "隐藏UI"
 
 [node name="SettingsRoot" type="Control" parent="." unique_id=1940249801]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -299,95 +305,241 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.447059)
+color = Color(0, 0, 0, 0.45)
 
-[node name="Panel" type="PanelContainer" parent="SettingsRoot" unique_id=344127947]
+[node name="BG" type="TextureRect" parent="SettingsRoot" unique_id=344127947]
 layout_mode = 1
-anchors_preset = 5
+anchors_preset = 8
 anchor_left = 0.5
+anchor_top = 0.5
 anchor_right = 0.5
-offset_left = -367.0
-offset_top = 133.0
-offset_right = 367.0
-offset_bottom = 480.0
+anchor_bottom = 0.5
+offset_left = -337.0
+offset_top = -240.0
+offset_right = 338.0
+offset_bottom = 240.0
 grow_horizontal = 2
-theme_override_styles/panel = SubResource("SBF_settings")
+grow_vertical = 2
+texture = ExtResource("11_setbg")
+expand_mode = 1
 
-[node name="VBox" type="VBoxContainer" parent="SettingsRoot/Panel" unique_id=1546006553]
-layout_mode = 2
-theme_override_constants/separation = 23
+[node name="CloseButton" type="TextureButton" parent="SettingsRoot/BG" unique_id=1778118833]
+layout_mode = 1
+offset_left = 628.0
+offset_top = 12.0
+offset_right = 661.0
+offset_bottom = 46.0
+texture_normal = ExtResource("12_btnclose")
+ignore_texture_size = true
+stretch_mode = 0
 
-[node name="Title" type="Label" parent="SettingsRoot/Panel/VBox" unique_id=2004247887]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.96, 0.85, 1)
-theme_override_font_sizes/font_size = 30
-text = "设置"
-horizontal_alignment = 1
+[node name="SfxLab" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953117]
+layout_mode = 1
+offset_left = 66.0
+offset_top = 80.0
+offset_right = 111.0
+offset_bottom = 128.0
+mouse_filter = 2
+texture = SubResource("AT_sfx_icon")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="AmbientVol" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=1355547713]
-layout_mode = 2
-theme_override_constants/separation = 16
+[node name="SfxText" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953121]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 93.0
+offset_right = 164.0
+offset_bottom = 141.0
+mouse_filter = 2
+texture = SubResource("AT_sfx_text")
+expand_mode = 1
 
-[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/AmbientVol" unique_id=1307622198]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
-theme_override_font_sizes/font_size = 22
-text = "环境音"
-
-[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/AmbientVol" unique_id=1987125940]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="SfxSlider" type="HSlider" parent="SettingsRoot/BG" unique_id=1604865419]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 112.0
+offset_right = 605.0
+offset_bottom = 128.0
+theme_override_icons/grabber = ExtResource("18_nograb")
+theme_override_icons/grabber_highlight = ExtResource("18_nograb")
+theme_override_icons/grabber_disabled = ExtResource("18_nograb")
+theme_override_styles/slider = SubResource("SBE_slider")
+theme_override_styles/grabber_area = SubResource("SBE_slider")
+theme_override_styles/grabber_area_highlight = SubResource("SBE_slider")
 max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="SfxVol" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=2713390235]
-layout_mode = 2
-theme_override_constants/separation = 16
+[node name="TrackImg" type="TextureRect" parent="SettingsRoot/BG/SfxSlider" unique_id=1280953131]
+layout_mode = 1
+offset_right = 475.0
+offset_bottom = 10.0
+mouse_filter = 2
+texture = ExtResource("16_track")
+expand_mode = 1
 
-[node name="Label" type="Label" parent="SettingsRoot/Panel/VBox/SfxVol" unique_id=2995588752]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
-theme_override_font_sizes/font_size = 22
-text = "其他声音"
+[node name="FillImg" type="TextureRect" parent="SettingsRoot/BG/SfxSlider" unique_id=1280953132]
+layout_mode = 1
+offset_left = 3.33
+offset_top = 3.065
+offset_right = 472.33
+offset_bottom = 7.064991
+mouse_filter = 2
+texture = ExtResource("17_fill")
+expand_mode = 1
 
-[node name="Slider" type="HSlider" parent="SettingsRoot/Panel/VBox/SfxVol" unique_id=2713390236]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="MasterLab" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953118]
+layout_mode = 1
+offset_left = 66.0
+offset_top = 176.0
+offset_right = 103.0
+offset_bottom = 220.0
+mouse_filter = 2
+texture = SubResource("AT_master_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MasterText" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953122]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 186.0
+offset_right = 179.0
+offset_bottom = 230.0
+mouse_filter = 2
+texture = SubResource("AT_master_text")
+expand_mode = 1
+
+[node name="MasterSlider" type="HSlider" parent="SettingsRoot/BG" unique_id=1604865420]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 204.0
+offset_right = 605.0
+offset_bottom = 220.0
+theme_override_icons/grabber = ExtResource("18_nograb")
+theme_override_icons/grabber_highlight = ExtResource("18_nograb")
+theme_override_icons/grabber_disabled = ExtResource("18_nograb")
+theme_override_styles/slider = SubResource("SBE_slider")
+theme_override_styles/grabber_area = SubResource("SBE_slider")
+theme_override_styles/grabber_area_highlight = SubResource("SBE_slider")
 max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="Buttons" type="HBoxContainer" parent="SettingsRoot/Panel/VBox" unique_id=850112030]
-layout_mode = 2
-theme_override_constants/separation = 23
+[node name="TrackImg" type="TextureRect" parent="SettingsRoot/BG/MasterSlider" unique_id=1280953133]
+layout_mode = 1
+offset_right = 475.0
+offset_bottom = 10.0
+mouse_filter = 2
+texture = ExtResource("16_track")
+expand_mode = 1
 
-[node name="ResumeButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=749617254]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
-theme_override_font_sizes/font_size = 25
-theme_override_styles/normal = SubResource("SBF_setbtn")
-theme_override_styles/pressed = SubResource("SBF_setbtn")
-theme_override_styles/hover = SubResource("SBF_setbtn")
-text = "继续游戏"
+[node name="FillImg" type="TextureRect" parent="SettingsRoot/BG/MasterSlider" unique_id=1280953134]
+layout_mode = 1
+offset_left = 3.33
+offset_top = 3.065
+offset_right = 472.33
+offset_bottom = 7.064991
+mouse_filter = 2
+texture = ExtResource("17_fill")
+expand_mode = 1
 
-[node name="MenuButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=1279320049]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
-theme_override_font_sizes/font_size = 25
-theme_override_styles/normal = SubResource("SBF_setbtn")
-theme_override_styles/pressed = SubResource("SBF_setbtn")
-theme_override_styles/hover = SubResource("SBF_setbtn")
-text = "回到主菜单"
+[node name="MusicLab" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953119]
+layout_mode = 1
+offset_left = 66.0
+offset_top = 272.0
+offset_right = 101.0
+offset_bottom = 318.0
+mouse_filter = 2
+texture = SubResource("AT_music_icon")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="QuitButton" type="Button" parent="SettingsRoot/Panel/VBox/Buttons" unique_id=1021645916]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.85, 0.93, 0.7, 1)
-theme_override_font_sizes/font_size = 25
-theme_override_styles/normal = SubResource("SBF_setbtn")
-theme_override_styles/pressed = SubResource("SBF_setbtn")
-theme_override_styles/hover = SubResource("SBF_setbtn")
+[node name="MusicText" type="TextureRect" parent="SettingsRoot/BG" unique_id=1280953123]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 278.0
+offset_right = 163.0
+offset_bottom = 324.0
+mouse_filter = 2
+texture = SubResource("AT_music_text")
+expand_mode = 1
+
+[node name="MusicSlider" type="HSlider" parent="SettingsRoot/BG" unique_id=1604865421]
+layout_mode = 1
+offset_left = 130.0
+offset_top = 300.0
+offset_right = 605.0
+offset_bottom = 316.0
+theme_override_icons/grabber = ExtResource("18_nograb")
+theme_override_icons/grabber_highlight = ExtResource("18_nograb")
+theme_override_icons/grabber_disabled = ExtResource("18_nograb")
+theme_override_styles/slider = SubResource("SBE_slider")
+theme_override_styles/grabber_area = SubResource("SBE_slider")
+theme_override_styles/grabber_area_highlight = SubResource("SBE_slider")
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="TrackImg" type="TextureRect" parent="SettingsRoot/BG/MusicSlider" unique_id=1280953135]
+layout_mode = 1
+offset_right = 475.0
+offset_bottom = 10.0
+mouse_filter = 2
+texture = ExtResource("16_track")
+expand_mode = 1
+
+[node name="FillImg" type="TextureRect" parent="SettingsRoot/BG/MusicSlider" unique_id=1280953136]
+layout_mode = 1
+offset_left = 3.33
+offset_top = 3.065
+offset_right = 472.33
+offset_bottom = 7.064991
+mouse_filter = 2
+texture = ExtResource("17_fill")
+expand_mode = 1
+
+[node name="FullscreenCheck" type="CheckBox" parent="SettingsRoot/BG" unique_id=1366524312]
+layout_mode = 1
+offset_left = 78.0
+offset_top = 334.0
+offset_right = 248.0
+offset_bottom = 368.0
+theme_override_colors/font_color = Color(0.68235296, 0.81960785, 0.30980393, 1)
+theme_override_colors/font_focus_color = Color(0.68235296, 0.81960785, 0.30980393, 1)
+theme_override_colors/font_pressed_color = Color(0.68235296, 0.81960785, 0.30980393, 1)
+theme_override_colors/font_hover_color = Color(0.68235296, 0.81960785, 0.30980393, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("SBE_slider")
+theme_override_styles/pressed = SubResource("SBE_slider")
+theme_override_styles/hover = SubResource("SBE_slider")
+theme_override_styles/hover_pressed = SubResource("SBE_slider")
+theme_override_styles/focus = SubResource("SBE_slider")
+theme_override_icons/checked = ExtResource("19_chk_on")
+theme_override_icons/unchecked = ExtResource("20_chk_off")
+text = "  全屏模式"
+
+[node name="QuitButton" type="Button" parent="SettingsRoot/BG" unique_id=1021645916]
+layout_mode = 1
+offset_left = 353.0
+offset_top = 404.0
+offset_right = 593.0
+offset_bottom = 452.0
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("SBF_quitbtn")
+theme_override_styles/pressed = SubResource("SBF_quitbtn")
+theme_override_styles/hover = SubResource("SBF_quitbtn")
 text = "退出游戏"
+
+[node name="QuitButton2" type="Button" parent="SettingsRoot/BG" unique_id=514711741]
+layout_mode = 0
+offset_left = 73.0
+offset_top = 404.0
+offset_right = 313.0
+offset_bottom = 452.0
+theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("SBF_quitbtn")
+theme_override_styles/pressed = SubResource("SBF_quitbtn")
+theme_override_styles/hover = SubResource("SBF_quitbtn")
+text = "返回菜单"

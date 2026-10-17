@@ -19,6 +19,10 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 @onready var _hide_ui_button: Button = $HideUIButton
 @onready var _sustain_hint: TextureRect = $SustainHint
 @onready var _sustain_hint_label: Label = $SustainHint/Label
+@onready var _sfx_slider: HSlider = $SettingsRoot/BG/SfxSlider
+@onready var _master_slider: HSlider = $SettingsRoot/BG/MasterSlider
+@onready var _music_slider: HSlider = $SettingsRoot/BG/MusicSlider
+@onready var _fullscreen_check: CheckBox = $SettingsRoot/BG/FullscreenCheck
 
 var _res_cache: Dictionary = {}    # item_type -> 上次显示的数值
 var _gear_tween: Tween
@@ -44,15 +48,24 @@ func _ready() -> void:
 	$GearButton.mouse_entered.connect(_on_gear_hover)
 	$GearButton.mouse_exited.connect(_on_gear_unhover)
 	_gear_button.pivot_offset = _gear_button.size * 0.5
-	$SettingsRoot/Panel/VBox/Buttons/ResumeButton.pressed.connect(_close_settings)
-	$SettingsRoot/Panel/VBox/Buttons/MenuButton.pressed.connect(_on_menu_pressed)
-	$SettingsRoot/Panel/VBox/Buttons/QuitButton.pressed.connect(_on_quit_pressed)
+	$SettingsRoot/BG/CloseButton.pressed.connect(_close_settings)
+	$SettingsRoot/BG/QuitButton.pressed.connect(_on_quit_pressed)
+	$SettingsRoot/BG/QuitButton2.pressed.connect(_on_menu_pressed)
 	$HideUIButton.pressed.connect(_toggle_hide_ui)
-	# 音量滑块
-	$SettingsRoot/Panel/VBox/AmbientVol/Slider.value_changed.connect(_on_ambient_volume_changed)
-	$SettingsRoot/Panel/VBox/SfxVol/Slider.value_changed.connect(_on_sfx_volume_changed)
-	$SettingsRoot/Panel/VBox/AmbientVol/Slider.value = GameManager.get_ambient_volume()
-	$SettingsRoot/Panel/VBox/SfxVol/Slider.value = GameManager.get_sfx_volume()
+	# 音量滑块：实时生效 + 填充条跟随
+	for slider: HSlider in [_sfx_slider, _master_slider, _music_slider]:
+		slider.value_changed.connect(func(v: float) -> void: _update_fill(slider, v))
+	_sfx_slider.value_changed.connect(_on_sfx_volume_changed)
+	_master_slider.value_changed.connect(_on_master_volume_changed)
+	_music_slider.value_changed.connect(_on_music_volume_changed)
+	_sfx_slider.value = GameManager.get_sfx_volume()
+	_master_slider.value = GameManager.get_master_volume()
+	_music_slider.value = GameManager.get_ambient_volume()
+	# 全屏复选框：回显当前窗口模式
+	var mode: int = DisplayServer.window_get_mode()
+	_fullscreen_check.button_pressed = mode == DisplayServer.WINDOW_MODE_FULLSCREEN \
+		or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	_settings_root.visible = false
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
@@ -255,12 +268,30 @@ func _toggle_settings() -> void:
 	_settings_root.visible = not _settings_root.visible
 
 
-func _on_ambient_volume_changed(value: float) -> void:
+func _on_sfx_volume_changed(value: float) -> void:
+	GameManager.set_sfx_volume(value)
+
+
+func _on_master_volume_changed(value: float) -> void:
+	GameManager.set_master_volume(value)
+
+
+func _on_music_volume_changed(value: float) -> void:
 	GameManager.set_ambient_volume(value)
 
 
-func _on_sfx_volume_changed(value: float) -> void:
-	GameManager.set_sfx_volume(value)
+# 滑条填充条宽度跟随当前值
+func _update_fill(slider: HSlider, _value: float = -1.0) -> void:
+	var fill: TextureRect = slider.get_node("FillImg")
+	fill.offset_right = 469.0 * slider.value
+
+
+# 全屏 / 窗口切换
+func _on_fullscreen_toggled(fullscreen: bool) -> void:
+	if fullscreen:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 # 隐藏/显示 HUD：只切换装饰和功能元素，HideUIButton 自身始终可见
@@ -310,10 +341,10 @@ func _on_lab_pressed() -> void:
 		lab.toggle()
 
 
+func _on_quit_pressed() -> void:
+	get_tree().quit()
+
+
 func _on_menu_pressed() -> void:
 	_close_settings()
 	get_tree().change_scene_to_file(START_SCENE)
-
-
-func _on_quit_pressed() -> void:
-	get_tree().quit()
