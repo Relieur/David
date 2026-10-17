@@ -39,6 +39,8 @@ var _reproduce_timer: float = 0.0      # 繁殖计时
 
 
 func _ready() -> void:
+	# 游戏界面背景音乐
+	GameManager.play_bgm(GameManager.BGM_GAME)
 	generate_world()
 	_scatter_decorations()
 	# 精炼炉：位置完全按场景里手动摆放的位置来（不再自动居中 / 自动散布），

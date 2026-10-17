@@ -13,6 +13,8 @@ const SFX_GRAB := preload("res://sfx/grab_sound.wav")
 const SFX_DROP := preload("res://sfx/drop.mp3")
 const SFX_AMBIENT := preload("res://sfx/ambient.wav")
 const SFX_STOVE := preload("res://sfx/stove_work_sound.wav")
+const BGM_START := preload("res://sfx/start_bgm.wav")   # 开始界面背景音乐
+const BGM_GAME := preload("res://sfx/game_bgm.mp3")     # 游戏界面背景音乐
 
 const SILENT_DB := -80.0                         # 视为静音的音量（db），fade 起止点
 const SFX_FADE_IN := 0.04                        # 一次性音效渐入时长（秒）
@@ -32,6 +34,8 @@ var _sfx_players: Array[AudioStreamPlayer] = []   # 一次性全局音效播放�
 var _sfx2d_players: Array[AudioStreamPlayer2D] = []  # 2D 采矿音效播放器池（带距离衰减）
 var _ambient_player: AudioStreamPlayer = null     # 环境音（全局循环）
 var _ambient_db: float = -2.0
+var _bgm_player: AudioStreamPlayer = null         # 背景音乐（开始界面 / 游戏界面各一首）
+var _bgm_db: float = -6.0
 var _stove_player: AudioStreamPlayer = null       # 炉火声（任一炉燃烧时循环）
 var _stove_db: float = -12.0
 var _burning_furnaces: int = 0                    # 正在燃烧的炉子计数
@@ -80,6 +84,10 @@ func _setup_audio() -> void:
 	_stove_player.volume_db = SILENT_DB
 	add_child(_stove_player)
 
+	_bgm_player = AudioStreamPlayer.new()
+	_bgm_player.volume_db = SILENT_DB
+	add_child(_bgm_player)
+
 
 # ==================== 音量控制 ====================
 # 把 0~1 的音量换算成 db 偏移：1.0 → 0dB，0.0 → 静音
@@ -99,6 +107,11 @@ func _stove_target_db() -> float:
 	return _stove_db + _vol_offset_db(_sfx_volume * _master_volume)
 
 
+# 背景音乐当前目标音量（受「音乐」与「总音量」滑块控制）
+func _bgm_target_db() -> float:
+	return _bgm_db + _vol_offset_db(_ambient_volume * _master_volume)
+
+
 # 设置总音量（0~1），同时缩放环境音与其他声音，立即平滑过渡
 func set_master_volume(vol: float) -> void:
 	_master_volume = clampf(vol, 0.0, 1.0)
@@ -106,6 +119,8 @@ func set_master_volume(vol: float) -> void:
 		_fade_to(_ambient_player, _ambient_target_db(), 0.15)
 	if _stove_player != null and _stove_player.playing:
 		_fade_to(_stove_player, _stove_target_db(), 0.15)
+	if _bgm_player != null and _bgm_player.playing:
+		_fade_to(_bgm_player, _bgm_target_db(), 0.15)
 
 
 func get_master_volume() -> float:
@@ -117,6 +132,8 @@ func set_ambient_volume(vol: float) -> void:
 	_ambient_volume = clampf(vol, 0.0, 1.0)
 	if _ambient_player != null and _ambient_player.playing:
 		_fade_to(_ambient_player, _ambient_target_db(), 0.15)
+	if _bgm_player != null and _bgm_player.playing:
+		_fade_to(_bgm_player, _bgm_target_db(), 0.15)
 
 
 # 设置其他声音音量（0~1），炉火声立即平滑过渡，一次性音效在下次播放时生效
@@ -284,6 +301,32 @@ func _acquire_free_2d_player() -> AudioStreamPlayer2D:
 	add_child(p)
 	_sfx2d_players.append(p)
 	return p
+
+
+# ==================== 背景音乐 ====================
+# 切换到指定背景音乐（同一首正在播则不重播）：淡入播放，受「音乐」与「总音量」控制
+func play_bgm(stream: AudioStream) -> void:
+	if stream == null or _bgm_player == null:
+		return
+	if _bgm_player.stream == stream and _bgm_player.playing:
+		return
+	_enable_loop(stream)
+	_bgm_player.stop()
+	_bgm_player.stream = stream
+	_bgm_player.volume_db = SILENT_DB
+	_bgm_player.play()
+	_fade_to(_bgm_player, _bgm_target_db(), AMBIENT_FADE)
+
+
+# 让 BGM 循环播放（WAV 与 MP3 的循环参数不同）
+func _enable_loop(stream: AudioStream) -> void:
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		wav.loop_end = int(wav.get_length() * float(wav.mix_rate))
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
 
 
 # ==================== 环境音 ====================

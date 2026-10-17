@@ -17,6 +17,7 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 @onready var _stage_progress: TextureProgressBar = $StageProgress/Fill
 @onready var _gear_button: TextureButton = $GearButton
 @onready var _hide_ui_button: Button = $HideUIButton
+@onready var _key_guide_button: Button = $KeyGuideButton
 @onready var _sustain_hint: TextureRect = $SustainHint
 @onready var _sustain_hint_label: Label = $SustainHint/Label
 @onready var _sfx_slider: HSlider = $SettingsRoot/BG/SfxSlider
@@ -27,6 +28,25 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 var _res_cache: Dictionary = {}    # item_type -> 上次显示的数值
 var _gear_tween: Tween
 var _ui_hidden: bool = false
+
+# ==================== 按键指南 ====================
+const KEY_GUIDE_ROWS := [
+	["W / A / S / D", "移动镜头"],
+	["空格", "镜头回到初始位置"],
+	["鼠标中键拖动", "平移地图"],
+	["鼠标滚轮", "缩放地图"],
+	["鼠标左键 · 机器人", "选中机器人"],
+	["鼠标左键 · 矿点", "已选中机器人时派它去挖矿；未选中时手动挖一块"],
+	["鼠标左键 · 精炼炉", "已选中机器人时派它去该炉卸货；未选中时鼓风加温"],
+	["鼠标左键 · 掉落物", "让掉落物自动飞回精炼炉"],
+	["鼠标右键", "取消选中机器人"],
+	["TAB", "打开 / 关闭研究所"],
+	["ESC", "打开 / 关闭设置（研究所打开时先关闭研究所）"],
+	["R", "隐藏 / 显示界面"],
+]
+const KEY_GUIDE_COLOR := Color(0.682353, 0.819608, 0.309804)      # 荧光绿：按键名
+const KEY_GUIDE_TEXT_COLOR := Color(0.86, 0.89, 0.80)            # 浅色：说明文字
+var _key_guide_root: Control = null
 
 # ==================== 上方提示框（队列播放，提示之间不互相抵消） ====================
 const SUSTAIN_DURABILITY_THRESHOLD := 0.30   # 耐久低于 30% 触发
@@ -53,6 +73,8 @@ func _ready() -> void:
 	$SettingsRoot/BG/QuitButton.pressed.connect(_on_quit_pressed)
 	$SettingsRoot/BG/QuitButton2.pressed.connect(_on_menu_pressed)
 	$HideUIButton.pressed.connect(_toggle_hide_ui)
+	$KeyGuideButton.pressed.connect(_toggle_key_guide)
+	_build_key_guide()
 	# 音量滑块：实时生效 + 填充条跟随
 	for slider: HSlider in [_sfx_slider, _master_slider, _music_slider]:
 		slider.value_changed.connect(func(v: float) -> void: _update_fill(slider, v))
@@ -82,6 +104,7 @@ func _ready() -> void:
 		$StageProgress,
 		$LabButton,
 		$GearButton,
+		$KeyGuideButton,
 	]
 
 
@@ -90,8 +113,24 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_R:
 			_toggle_hide_ui()
 			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_ESCAPE and _settings_root.visible:
-			_close_settings()
+		elif event.keycode == KEY_ESCAPE:
+			# 已被其它面板（如研究所）处理过就不再响应
+			if get_viewport().is_input_handled():
+				return
+			# 研究所打开时 ESC 交给它关闭，不抢事件
+			var lab := get_node_or_null("../ResearchLabUI")
+			if lab != null and lab.visible:
+				return
+			# 按键指南打开时优先关闭它
+			if _key_guide_root != null and _key_guide_root.visible:
+				_close_key_guide()
+				get_viewport().set_input_as_handled()
+				return
+			# ESC：设置面板已开则关闭，否则打开
+			if _settings_root.visible:
+				_close_settings()
+			else:
+				_toggle_settings()
 			get_viewport().set_input_as_handled()
 
 
@@ -263,9 +302,128 @@ func _format_cost(cost: Dictionary) -> String:
 	return "、".join(parts)
 
 
+# ==================== 按键指南 ====================
+func _toggle_key_guide() -> void:
+	if _key_guide_root == null:
+		return
+	_key_guide_root.visible = not _key_guide_root.visible
+	if _key_guide_root.visible:
+		_settings_root.visible = false
+
+
+func _close_key_guide() -> void:
+	if _key_guide_root != null:
+		_key_guide_root.visible = false
+
+
+# 构建按键指南弹窗（按键列表改 KEY_GUIDE_ROWS 即可）
+func _build_key_guide() -> void:
+	_key_guide_root = Control.new()
+	_key_guide_root.visible = false
+	_key_guide_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_key_guide_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_key_guide_root)
+
+	# 半透明遮罩：拦截背后点击，点击遮罩也可关闭
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(_on_key_guide_dim_input)
+	_key_guide_root.add_child(dim)
+
+	# 居中面板
+	var panel := Panel.new()
+	panel.anchor_left = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -500.0
+	panel.offset_top = -330.0
+	panel.offset_right = 500.0
+	panel.offset_bottom = 330.0
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.06, 0.03, 0.95)
+	style.border_color = Color(KEY_GUIDE_COLOR, 0.9)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(10)
+	panel.add_theme_stylebox_override("panel", style)
+	_key_guide_root.add_child(panel)
+
+	var title := Label.new()
+	title.text = "按键指南"
+	title.anchor_right = 1.0
+	title.offset_top = 18.0
+	title.offset_bottom = 62.0
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", KEY_GUIDE_COLOR)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(title)
+
+	# 关闭按钮
+	var close_btn := TextureButton.new()
+	close_btn.texture_normal = load("res://art/SettingsPanel/UI_Btn_Close.png")
+	close_btn.ignore_texture_size = true
+	close_btn.stretch_mode = TextureButton.STRETCH_SCALE
+	close_btn.anchor_left = 1.0
+	close_btn.anchor_right = 1.0
+	close_btn.offset_left = -60.0
+	close_btn.offset_top = 14.0
+	close_btn.offset_right = -20.0
+	close_btn.offset_bottom = 54.0
+	close_btn.pressed.connect(_close_key_guide)
+	panel.add_child(close_btn)
+
+	# 按键行
+	var rows := VBoxContainer.new()
+	rows.anchor_right = 1.0
+	rows.anchor_bottom = 1.0
+	rows.offset_left = 46.0
+	rows.offset_top = 84.0
+	rows.offset_right = -46.0
+	rows.offset_bottom = -28.0
+	rows.add_theme_constant_override("separation", 10)
+	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(rows)
+
+	for row_data in KEY_GUIDE_ROWS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 24)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		var key_label := Label.new()
+		key_label.text = String(row_data[0])
+		key_label.custom_minimum_size = Vector2(250.0, 0.0)
+		key_label.add_theme_font_size_override("font_size", 22)
+		key_label.add_theme_color_override("font_color", KEY_GUIDE_COLOR)
+		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(key_label)
+
+		var desc := Label.new()
+		desc.text = String(row_data[1])
+		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		desc.add_theme_font_size_override("font_size", 21)
+		desc.add_theme_color_override("font_color", KEY_GUIDE_TEXT_COLOR)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(desc)
+
+		rows.add_child(row)
+
+
+func _on_key_guide_dim_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_close_key_guide()
+		get_viewport().set_input_as_handled()
+
+
 # ==================== 设置面板 ====================
 func _toggle_settings() -> void:
 	_settings_root.visible = not _settings_root.visible
+	if _settings_root.visible:
+		_close_key_guide()
 
 
 func _on_sfx_volume_changed(value: float) -> void:
@@ -299,9 +457,10 @@ func _toggle_hide_ui() -> void:
 	_ui_hidden = not _ui_hidden
 	for el in _hud_elements:
 		el.visible = not _ui_hidden
-	# 隐藏时同时收起设置面板，避免残留半透明遮罩
+	# 隐藏时同时收起设置 / 按键指南面板，避免残留半透明遮罩
 	if _ui_hidden:
 		_settings_root.visible = false
+		_close_key_guide()
 		_hide_ui_button.text = "显示UI"
 	else:
 		_hide_ui_button.text = "隐藏UI"

@@ -81,8 +81,11 @@ const COLOR_ON_DARK := Color(0.682353, 0.819608, 0.309804)   # AED14F
 const LINE_UNLOCKED := Color(0.682353, 0.819608, 0.309804, 0.95)  # AED14F
 const LINE_LOCKED := Color(0.682353, 0.819608, 0.309804, 0.30)    # AED14F 低透明 = 明暗区分
 const NODE_MAXED := Color(1.0, 1.0, 1.0)
-const NODE_AVAILABLE := Color(1.0, 1.0, 1.0)
 const NODE_LOCKED := Color(0.4, 0.44, 0.4)
+const NODE_READY := Color(0.72, 0.76, 0.70)      # 阶段已达标（绿 / 红圈）：介于满级亮色与锁暗之间
+const RING_MAXED := Color(0.25, 0.62, 1.0, 0.95)   # 满级 / 已解锁（无法再升级）的蓝色光圈
+const RING_UPGRADEABLE := Color(0.45, 0.95, 0.42, 0.95)  # 满足升级条件、可立即升级的绿色光圈
+const RING_NO_RES := Color(0.95, 0.32, 0.28, 0.95)       # 研究所阶段已达标但资源不足的红色光圈
 
 const TEX_DESC_BG := ART + "UI_TechTree_DescBG.png"
 const TEX_UPGRADE_BTN := ART + "UI_TechTree_UpgradeBtn.png"
@@ -92,6 +95,7 @@ var _view_root: Control           # 缩放 / 平移容器
 var _lines: Node2D                # 连线层（draw 信号绘制）
 var _nodes: Dictionary = {}       # tech_id -> Control（TextureButton 或「?」占位 Panel）
 var _node_badges: Dictionary = {} # tech_id -> 等级小字 Label
+var _node_rings: Dictionary = {}  # tech_id -> 满级 / 已解锁蓝色光圈 Panel
 
 # 介绍框（挂到每个节点下方，悬停时显隐，画面不再移动）
 var _desc_root: Control
@@ -259,6 +263,24 @@ func _build_node(tid: String) -> void:
 	node.pivot_offset = Vector2(NODE_SIZE, NODE_SIZE) * 0.5
 	_view_root.add_child(node)
 	_nodes[tid] = node
+
+	# 满级 / 已解锁（无法再升级）时套在图标外的蓝色光圈
+	var ring_inset := 5.0
+	var ring_size := NODE_SIZE + ring_inset * 2.0
+	var ring := Panel.new()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.position = Vector2(-ring_inset, -ring_inset)
+	ring.size = Vector2(ring_size, ring_size)
+	var ring_style := StyleBoxFlat.new()
+	ring_style.bg_color = Color(0, 0, 0, 0)
+	ring_style.draw_center = false
+	ring_style.border_color = RING_MAXED
+	ring_style.set_border_width_all(3)
+	ring_style.set_corner_radius_all(int(ring_size * 0.5))
+	ring.add_theme_stylebox_override("panel", ring_style)
+	ring.visible = false
+	node.add_child(ring)
+	_node_rings[tid] = ring
 
 	# 节点下方等级小字
 	var badge := Label.new()
@@ -529,10 +551,26 @@ func _refresh_node(tid: String) -> void:
 		return
 	var lv: int = GameManager.get_tech_level(tid)
 	var max_lv: int = GameManager.get_tech_max_level(tid)
+	# 满级 / 一次性科技已解锁 → 蓝色；当前可升级 → 绿色；阶段达标但资源不足 → 红色（同一尺寸光圈）
+	var ring: Panel = _node_rings.get(tid)
+	if ring != null:
+		var maxed: bool = lv >= max_lv
+		var upgradeable: bool = not maxed and GameManager.can_unlock_tech(tid)
+		var no_res: bool = not maxed and not upgradeable and _stage_ok(tid) and not _resources_ok(tid)
+		ring.visible = maxed or upgradeable or no_res
+		if ring.visible:
+			var ring_style := ring.get_theme_stylebox("panel") as StyleBoxFlat
+			if maxed:
+				ring_style.border_color = RING_MAXED
+			elif upgradeable:
+				ring_style.border_color = RING_UPGRADEABLE
+			else:
+				ring_style.border_color = RING_NO_RES
 	if lv >= max_lv:
 		node.modulate = NODE_MAXED
-	elif GameManager.can_unlock_tech(tid):
-		node.modulate = NODE_AVAILABLE
+	elif _stage_ok(tid):
+		# 绿圈 / 红圈（阶段已达标）的升级项：图标取满级亮色与锁暗之间的中间亮度
+		node.modulate = NODE_READY
 	else:
 		node.modulate = NODE_LOCKED
 	if max_lv > 1:
@@ -541,6 +579,24 @@ func _refresh_node(tid: String) -> void:
 		badge.text = "已解锁"
 	else:
 		badge.text = ""
+
+
+# 该科技下一级的研究所阶段要求是否已满足（与 GameManager.can_unlock_tech 判定一致）
+func _stage_ok(tid: String) -> bool:
+	var tech: Dictionary = GameManager.TECHS.get(tid, {})
+	var n: int = GameManager.get_tech_level(tid)
+	var arr: Array = tech.get("lab_stages", [])
+	var need_stage: int = int(arr[clampi(n, 0, arr.size() - 1)]) if arr.size() > 0 else int(tech.get("lab_stage", 0))
+	return need_stage <= GameManager.lab_stage
+
+
+# 该科技下一级的资源是否足够
+func _resources_ok(tid: String) -> bool:
+	var cost := GameManager.get_tech_cost(tid)
+	for item_type in cost:
+		if GameManager.get_count(String(item_type)) < int(cost[item_type]):
+			return false
+	return true
 
 
 func _refresh_lab_panel() -> void:

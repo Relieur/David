@@ -31,6 +31,7 @@ const HEAT_PER_FAN := 35.0         # 每次鼓风回复的炉温
 const FAN_COOLDOWN := 0.35         # 鼓风冷却（秒），防连点瞬满
 const HEAT_MIN_EFFICIENCY := 0.4   # 炉温归零时的最低烧制效率（不至于完全停摆）
 const HEAT_WARN_RATIO := 0.3       # 低于这个比例时炉温条变红并提示鼓风
+const WARN_RING_COLOR := Color(0.682353, 0.819608, 0.309804)  # 低炉温提示光圈 #aed14f
 
 @onready var collision_shape_2d: CollisionShape2D = $CollisionShape2D
 @onready var sprite_2d: Sprite2D = $Sprite2D
@@ -46,6 +47,7 @@ var _floaters: Array = []            # 烧制完成时「+N」浮动效果列表
 var _burning: bool = false           # 本炉是否正在燃烧（用于炉火音效的启停判断）
 var _heat: float = HEAT_MAX          # 当前炉温（0~100）
 var _fan_cooldown: float = 0.0       # 鼓风冷却计时
+var _warn_pulse: float = 0.0         # 低炉温光圈呼吸相位
 
 
 func _ready() -> void:
@@ -196,6 +198,10 @@ func _process(delta: float) -> void:
 		_fan_cooldown = maxf(0.0, _fan_cooldown - delta)
 	var burning := _ore_stock > 0
 	_set_burning(burning)
+	# 炉温低于 30：光圈呼吸提示，需要每帧重绘
+	if _heat <= HEAT_MAX * HEAT_WARN_RATIO:
+		_warn_pulse += delta
+		dirty = true
 	if _ore_stock > 0:
 		# 炉温只在燃烧时下降（空炉不惩罚），并同步火焰表现
 		var prev_heat := _heat
@@ -317,7 +323,7 @@ func _get_double_chance() -> float:
 	return DOUBLE_SMELT_BASE_CHANCE + CRIT_CHANCE_PER_LEVEL * float(crit_level)
 
 
-# 当前烧制耗时：基础 1.5 秒，每级「煅烧速度」-0.25 秒
+# 当前烧制耗时：基础 2.0 秒，每级「煅烧速度」-0.25 秒
 func _get_smelt_interval() -> float:
 	var level := GameManager.get_tech_level("smelt_speed")
 	return SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level)
@@ -345,6 +351,9 @@ func _draw() -> void:
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * ratio, bar_h), Color(0.95, 0.62, 0.15, 0.95))
 	# 炉温条：常驻显示在烧制进度条下方，是玩家的主要操作目标
 	_draw_heat_bar(bar_y + 12.0)
+	# 炉温低于 30：炉体周围加一圈荧光绿提示光圈
+	if _heat <= HEAT_MAX * HEAT_WARN_RATIO:
+		_draw_warn_ring()
 	# 烧制完成的「+N」：在进度条上方升起并淡出
 	if _floaters.is_empty():
 		return
@@ -367,25 +376,30 @@ func _draw() -> void:
 		)
 
 
-# 炉温条：颜色 绿 → 黄 → 红，过红时在右侧提示「点击鼓风」
+# 炉温条：颜色 绿 → 黄 → 红
 func _draw_heat_bar(y: float) -> void:
 	var r := get_heat_ratio()
 	var bar_w := 96.0
 	var bar_h := 8.0
 	draw_rect(Rect2(-bar_w * 0.5, y, bar_w, bar_h), Color(0.12, 0.12, 0.12, 0.85))
 	draw_rect(Rect2(-bar_w * 0.5, y, bar_w * r, bar_h), _heat_color(r))
-	if r <= HEAT_WARN_RATIO:
-		var font := ThemeDB.fallback_font
-		if font != null:
-			draw_string(
-				font,
-				Vector2(bar_w * 0.5 + 6.0, y + bar_h),
-				"点击鼓风",
-				HORIZONTAL_ALIGNMENT_LEFT,
-				120.0,
-				18,
-				Color(0.95, 0.35, 0.25, 1.0)
-			)
+
+
+# 低炉温提示光圈：荧光绿（#aed14f）多层圆环 + 呼吸脉动，画在炉体外圈
+func _draw_warn_ring() -> void:
+	# 半径外扩，保证加粗后的圆环不被炉体贴图盖住
+	var radius := maxf(_get_half_height(), 96.0) + 48.0
+	var pulse := 0.5 + 0.5 * sin(_warn_pulse * 4.0)
+	var alpha := lerpf(0.70, 1.0, pulse)
+	var base := WARN_RING_COLOR.lerp(Color.WHITE, 0.15)   # 整体提亮
+	var core := WARN_RING_COLOR.lerp(Color.WHITE, 0.60)   # 内层更亮，增强醒目度
+	# 外层柔光 → 内层亮边，叠出泛光效果
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64,
+		Color(base.r, base.g, base.b, alpha * 0.30), 40.0, true)
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64,
+		Color(base.r, base.g, base.b, alpha * 0.55), 24.0, true)
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64,
+		Color(core.r, core.g, core.b, alpha), 8.0, true)
 
 
 # 炉温条颜色：高=绿，中=黄，低=红

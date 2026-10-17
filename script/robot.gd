@@ -11,10 +11,12 @@ const CARRY_ITEM_TYPE := "copper"           # 机器人背包里装的矿物类�
 @export var deposit_range: float = 200.0     # 卸货判定距离：需大于炉体硬碰撞体(SolidBody 240×240，对角半宽约170+机器人半径22)，
 											 # 否则机器人直线冲炉被硬碰撞挡住，永远到不了卸货点卡在炉前
 
-# 挖到矿时头顶的「+1」浮动字
-const FLOATING_TEXT_SCENE: PackedScene = preload("res://scene/floating_text.tscn")
-const MINE_FLOATER_COLOR := Color(0.45, 0.95, 0.42, 1.0)   # 绿色：采到矿物
-const MINE_FLOATER_OFFSET_Y := -52.0                        # 浮在机器人头顶
+# 挖到矿时从头顶飞出、再飞进机器人身体的矿物图标
+const MINE_ITEM_TEXTURE: Texture2D = preload("res://art/Ore/Item_Ore.png")
+const MINE_ITEM_OFFSET := Vector2(0.0, -52.0)   # 出现位置：机器人头顶
+const MINE_ITEM_POP_SCALE := 0.7                # 弹出后的显示大小
+const MINE_ITEM_POP_TIME := 0.15                # 弹出耗时
+const MINE_ITEM_FLY_TIME := 0.35                # 飞入机器人耗时
 
 # ==================== 节点引用 ====================
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
@@ -423,7 +425,7 @@ func _start_mining() -> void:
 			break
 		if ore.mine():
 			_carry_count += 1
-			_spawn_mine_floater()
+			_spawn_mine_item()
 			print("机器人 %s 采到矿，携带 %d / %d" % [name, _carry_count, carry_capacity])
 
 	if is_instance_valid(ore):
@@ -446,16 +448,25 @@ func _start_mining() -> void:
 		_state = State.IDLE
 
 
-# 挖到矿时在头顶弹出绿色「+1」（挂到场景根，用世界坐标，不随机器人一起消失）
-func _spawn_mine_floater() -> void:
-	var scene_root: Node = get_tree().current_scene
-	if scene_root == null:
-		return
-	var ft := FLOATING_TEXT_SCENE.instantiate() as FloatingText
-	if ft == null:
-		return
-	scene_root.add_child(ft)
-	ft.setup("+1", MINE_FLOATER_COLOR, global_position + Vector2(0.0, MINE_FLOATER_OFFSET_Y))
+# 挖到矿时：头顶弹出矿物图标，再飞进机器人身体（挂在机器人下，自动跟随移动）
+func _spawn_mine_item() -> void:
+	var item := Sprite2D.new()
+	item.texture = MINE_ITEM_TEXTURE
+	item.z_index = 1                        # 画在机器人动画之上
+	item.position = MINE_ITEM_OFFSET
+	item.scale = Vector2.ZERO
+	add_child(item)
+
+	var tw := create_tween()
+	# 先弹出
+	tw.tween_property(item, "scale", Vector2(MINE_ITEM_POP_SCALE, MINE_ITEM_POP_SCALE), MINE_ITEM_POP_TIME) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# 再一边飞向身体一边缩小消失
+	tw.tween_property(item, "position", Vector2(0.0, -12.0), MINE_ITEM_FLY_TIME) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(item, "scale", Vector2.ZERO, MINE_ITEM_FLY_TIME) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(item.queue_free)
 
 
 # ==================== 卸货 ====================

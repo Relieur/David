@@ -47,6 +47,8 @@ const NO_TEXTURES := [
 
 
 func _ready() -> void:
+	# 开始界面背景音乐
+	GameManager.play_bgm(GameManager.BGM_START)
 	# ---- 主菜单按钮：hover 展开 + 点击 ----
 	var main_buttons := {
 		"start": $Buttons/StartButton,
