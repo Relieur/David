@@ -5,7 +5,6 @@
 [ext_resource type="Texture2D" uid="uid://ofp6rj617v0g" path="res://textures/微信图片_20261008090444_781_372.png" id="3_whfxa"]
 [ext_resource type="PackedScene" uid="uid://dr1xk34nuvoxr" path="res://scene/refining_furnace.tscn" id="4_bs68n"]
 [ext_resource type="Script" uid="uid://dt2lmh16autlx" path="res://script/camera_2d.gd" id="4_whfxa"]
-[ext_resource type="PackedScene" uid="uid://dx73twhnctp2" path="res://scene/tile_cursor.tscn" id="5_d1c84"]
 [ext_resource type="PackedScene" uid="uid://cfxeo8qifpt2o" path="res://scene/research_lab_ui.tscn" id="9_labui"]
 [ext_resource type="PackedScene" uid="uid://bb0dlwu37xq5x" path="res://scene/ore_patch_block.tscn" id="9_p4qsy"]
 [ext_resource type="PackedScene" uid="uid://44n82bh2oeim" path="res://scene/ore_patch_l.tscn" id="11_cglsi"]
@@ -129,9 +128,6 @@ theme_override_font_sizes/font_size = 28
 text = "让我看看档案......"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="TileCursor" parent="." unique_id=188704725 instance=ExtResource("5_d1c84")]
-default_color = Color(0.04171574, 0.53010005, 3.080368e-06, 1)
 
 [node name="PlayerCursor" parent="." unique_id=154724218 instance=ExtResource("15_pc")]
 

@@ -43,8 +43,6 @@ var _smelt_timer: float = 0.0        # 当前铜锭的烧制计时
 var _ore_stock: int = 0              # 本炉独立存储的待烧铜矿数量（不与其它炉共享）
 var _is_active: bool = true          # 是否已启用（预放置的炉子开局只有名字最小的那个启用）
 var _floaters: Array = []            # 烧制完成时「+N」浮动效果列表
-var _stock_label: Label = null       # 炉内矿量显示（UI）
-var _label_stock: int = -1           # 上次刷新标签时的矿量（用于避免重复刷新）
 var _burning: bool = false           # 本炉是否正在燃烧（用于炉火音效的启停判断）
 var _heat: float = HEAT_MAX          # 当前炉温（0~100）
 var _fan_cooldown: float = 0.0       # 鼓风冷却计时
@@ -56,36 +54,7 @@ func _ready() -> void:
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
 	_align_to_grid()
-	_create_stock_label()
 	_setup_burning_visual()
-
-
-# 创建「炉内矿量」显示标签（放在炉体下方）
-func _create_stock_label() -> void:
-	_stock_label = Label.new()
-	_stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stock_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_stock_label.add_theme_font_size_override("font_size", 32)
-	_stock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stock_label.z_index = 1
-	const LABEL_W := 160.0
-	const LABEL_H := 48.0
-	_stock_label.size = Vector2(LABEL_W, LABEL_H)
-	_stock_label.position = Vector2(-LABEL_W * 0.5, _get_half_height() + 2.0)
-	add_child(_stock_label)
-	_update_stock_label()
-
-
-# 刷新矿量文字：有矿时高亮，空炉时灰显（矿量未变时直接跳过）
-func _update_stock_label() -> void:
-	if _stock_label == null or _label_stock == _ore_stock:
-		return
-	_label_stock = _ore_stock
-	_stock_label.text = "矿 %d" % _ore_stock
-	_stock_label.add_theme_color_override(
-		"font_color",
-		Color(0.95, 0.25, 0.25, 1.0) if _ore_stock > 0 else Color(0.68, 0.30, 0.30, 0.9)
-	)
 
 
 func is_active() -> bool:
@@ -246,7 +215,6 @@ func _process(delta: float) -> void:
 			GameManager.add_item(INGOT_TYPE, gained)
 			# 每烧制完成一次，在炉子上方弹出一个「+N」
 			_spawn_floater("+%d" % gained)
-		_update_stock_label()
 		dirty = true
 	elif _smelt_timer != 0.0:
 		_smelt_timer = 0.0
@@ -356,7 +324,6 @@ func _get_smelt_interval() -> float:
 # 投入铜矿：存进本炉独立库存（机器人卸货 / 掉落物飞入）
 func deposit_ore(amount: int) -> void:
 	_ore_stock += amount
-	_update_stock_label()
 	queue_redraw()
 
 

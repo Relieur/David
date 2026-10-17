@@ -101,9 +101,7 @@ var _desc_text: Label
 var _desc_btn: TextureButton
 var _desc_owner: Control = null   # 介绍框当前依附的节点
 
-var _lab_stage_label: Label
-var _lab_cost_label: Label
-var _lab_btn: TextureButton
+var _lab_cells: Array = []          # 6 个阶段格（阶段0~5），每格 {style, status, btn}
 
 var _zoom: float = 0.9
 var _pan: Vector2 = Vector2.ZERO
@@ -328,23 +326,22 @@ func _build_desc_panel() -> void:
 
 func _build_lab_panel() -> void:
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.03, 0.92)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 8
-	style.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.anchor_top = 1.0
-	panel.anchor_bottom = 1.0
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color(0.05, 0.06, 0.03, 0.92)
+	base.content_margin_left = 12
+	base.content_margin_right = 12
+	base.content_margin_top = 10
+	base.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", base)
+	# 左侧竖排一列：x 24~236，y 24~480（标题 + 6 个阶段格）
 	panel.offset_left = 24
-	panel.offset_top = -120
-	panel.offset_right = 330
-	panel.offset_bottom = -24
+	panel.offset_top = 24
+	panel.offset_right = 236
+	panel.offset_bottom = 484
 	add_child(panel)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 2)
+	vbox.add_theme_constant_override("separation", 6)
 	panel.add_child(vbox)
 
 	var title := Label.new()
@@ -353,25 +350,55 @@ func _build_lab_panel() -> void:
 	title.add_theme_color_override("font_color", COLOR_ON_DARK)
 	vbox.add_child(title)
 
-	_lab_stage_label = Label.new()
-	_lab_stage_label.add_theme_font_size_override("font_size", 14)
-	_lab_stage_label.add_theme_color_override("font_color", COLOR_ON_DARK)
-	vbox.add_child(_lab_stage_label)
+	_lab_cells.clear()
+	for stage in range(6):
+		var cell := _build_stage_cell(stage)
+		vbox.add_child(cell["root"])
+		_lab_cells.append(cell)
 
-	_lab_cost_label = Label.new()
-	_lab_cost_label.add_theme_font_size_override("font_size", 13)
-	_lab_cost_label.add_theme_color_override("font_color", COLOR_ON_DARK)
-	vbox.add_child(_lab_cost_label)
 
-	_lab_btn = TextureButton.new()
-	_lab_btn.texture_normal = load(TEX_UPGRADE_BTN)
-	_lab_btn.ignore_texture_size = true
-	_lab_btn.stretch_mode = TextureButton.STRETCH_SCALE
-	_lab_btn.custom_minimum_size = Vector2(33, 60)
-	_lab_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_lab_btn.pivot_offset = Vector2(16.5, 30)
-	_lab_btn.pressed.connect(_on_lab_upgrade_pressed)
-	vbox.add_child(_lab_btn)
+# 单个阶段格：阶段名 + 状态/消耗 + 右侧按钮（已达成 ✓ / 当前 ● / 下一阶段可升级 / 未开启 ×）
+func _build_stage_cell(_stage: int) -> Dictionary:
+	var cell := PanelContainer.new()
+	cell.custom_minimum_size = Vector2(188, 60)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.09, 0.11, 0.06, 0.9)
+	style.content_margin_left = 10
+	style.content_margin_right = 8
+	style.content_margin_top = 5
+	style.content_margin_bottom = 5
+	cell.add_theme_stylebox_override("panel", style)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	cell.add_child(hbox)
+
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(info)
+
+	var name_label := Label.new()
+	name_label.text = "阶段 %d" % _stage
+	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.add_theme_color_override("font_color", COLOR_ON_DARK)
+	info.add_child(name_label)
+
+	var status := Label.new()
+	status.add_theme_font_size_override("font_size", 12)
+	status.add_theme_color_override("font_color", Color(0.75, 0.78, 0.7))
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(status)
+
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(52, 38)
+	btn.add_theme_font_size_override("font_size", 13)
+	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	btn.disabled = true
+	# 每一格都连同一个升级函数，内部按 GameManager.lab_stage 判断，只有下一阶段格会被启用
+	btn.pressed.connect(_on_lab_upgrade_pressed)
+	hbox.add_child(btn)
+
+	return {"root": cell, "style": style, "status": status, "btn": btn}
 
 
 func _build_close_button() -> void:
@@ -500,20 +527,41 @@ func _refresh_node(tid: String) -> void:
 
 func _refresh_lab_panel() -> void:
 	var stage: int = GameManager.lab_stage
-	var next: int = stage + 1
-	if next > 5:
-		_lab_stage_label.text = "当前阶段 %d（已满级）" % stage
-		_lab_cost_label.text = ""
-		_lab_btn.visible = false
-	else:
-		_lab_stage_label.text = "当前阶段 %d" % stage
-		var cost: Dictionary = GameManager.LAB_STAGE_UPGRADE_COSTS[stage]
-		var parts: PackedStringArray = []
-		for item_type in cost:
-			parts.append("%d %s" % [int(cost[item_type]), _item_name(String(item_type))])
-		_lab_cost_label.text = "升级消耗：" + "、".join(parts)
-		_lab_btn.visible = true
-		_lab_btn.modulate = Color.WHITE if GameManager.can_upgrade_lab() else Color(0.5, 0.5, 0.5)
+	var can: bool = GameManager.can_upgrade_lab()
+	for i in range(_lab_cells.size()):
+		var cell: Dictionary = _lab_cells[i]
+		var style: StyleBoxFlat = cell["style"]
+		var status: Label = cell["status"]
+		var btn: Button = cell["btn"]
+		var is_current: bool = i == stage
+		# 当前阶段格加荧光绿边框高亮，其余无边框
+		var bw: int = 2 if is_current else 0
+		style.border_width_left = bw
+		style.border_width_right = bw
+		style.border_width_top = bw
+		style.border_width_bottom = bw
+		style.border_color = COLOR_ON_DARK
+
+		if i < stage:
+			status.text = "已达成"
+			btn.text = "✓"
+			btn.disabled = true
+		elif i == stage:
+			status.text = "当前阶段"
+			btn.text = "●"
+			btn.disabled = true
+		elif i == stage + 1 and stage < 5:
+			var cost: Dictionary = GameManager.LAB_STAGE_UPGRADE_COSTS[stage]
+			var parts: PackedStringArray = []
+			for item_type in cost:
+				parts.append("%d %s" % [int(cost[item_type]), _item_name(String(item_type))])
+			status.text = "消耗：" + "、".join(parts)
+			btn.text = "升级"
+			btn.disabled = not can
+		else:
+			status.text = "未开启"
+			btn.text = "×"
+			btn.disabled = true
 
 
 func _item_name(item_type: String) -> String:
@@ -652,15 +700,21 @@ func _zoom_at(screen_pos: Vector2, factor: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not visible:
-		return
+	# 开关键（TAB 打开/关闭、ESC 关闭）必须在 visible 判断之前处理，
+	# 否则面板隐藏时直接 return，TAB 永远只能关闭、无法打开
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
+			if visible:
+				_close()
+			else:
+				_open()
+			get_viewport().set_input_as_handled()
+			return
+		elif event.keycode == KEY_ESCAPE and visible:
 			_close()
 			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_ESCAPE:
-			_close()
-			get_viewport().set_input_as_handled()
+			return
+	if not visible:
 		return
 	# 与地图拖动同一种操作方式：中键拖动 + 滚轮缩放
 	if event is InputEventMouseButton:
