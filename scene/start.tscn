@@ -4,10 +4,15 @@
 [ext_resource type="Theme" uid="uid://vx13f4ala1me" path="res://ui/menu_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" uid="uid://bu7o5p8ilrhd8" path="res://art/StartScene/UI_Bg_Main.png" id="3_bg"]
 [ext_resource type="Texture2D" uid="uid://c7ryj8i78rpbj" path="res://art/StartScene/UI_Img_Title.png" id="4_title"]
-[ext_resource type="Texture2D" uid="uid://dqst3t68oo0ga" path="res://art/StartScene/UI_Btn_Start_Normal.png" id="5_start"]
-[ext_resource type="Texture2D" uid="uid://bbv17ce0xxqs1" path="res://art/StartScene/UI_Btn_Continue_Normal.png" id="6_cont"]
-[ext_resource type="Texture2D" uid="uid://by5qxov6kn7hb" path="res://art/StartScene/UI_Btn_Settings_Normal.png" id="7_set"]
-[ext_resource type="PackedScene" uid="uid://c7ewo6762qgqd" path="res://scene/vfx_quit_button.tscn" id="8_vfx_quit"]
+[ext_resource type="Texture2D" uid="uid://ndwi7ep6c0vl" path="res://art/StartScene/Buttons/Start.png" id="btn_start_normal"]
+[ext_resource type="Texture2D" uid="uid://7dngj7s3f26j" path="res://art/StartScene/Buttons/Start_Hover.png" id="btn_start_hover"]
+[ext_resource type="Texture2D" uid="uid://28oikjf4ow3b" path="res://art/StartScene/Buttons/Continue.png" id="btn_continue_normal"]
+[ext_resource type="Texture2D" uid="uid://dyp211ireywyk" path="res://art/StartScene/Buttons/Continue_Hover.png" id="btn_continue_hover"]
+[ext_resource type="Texture2D" uid="uid://ujf3l7t03mai" path="res://art/StartScene/Buttons/Settings.png" id="btn_settings_normal"]
+[ext_resource type="Texture2D" uid="uid://bm6ul5gvsfppu" path="res://art/StartScene/Buttons/Settings_Hover.png" id="btn_settings_hover"]
+[ext_resource type="Texture2D" uid="uid://ux387svj7psb" path="res://art/StartScene/Buttons/Quit.png" id="btn_quit_normal"]
+[ext_resource type="Texture2D" uid="uid://dyosjfktelscd" path="res://art/StartScene/Buttons/Quit_Hover.png" id="btn_quit_hover"]
+[ext_resource type="PackedScene" uid="uid://c7ewo6762qgqd" path="res://scene/vfx_menu_button.tscn" id="menu_button_scene"]
 [ext_resource type="Texture2D" uid="uid://bo44tafqlkhfx" path="res://art/StartScene/UI_Bg_Window.png" id="9_win"]
 [ext_resource type="Texture2D" uid="uid://cd0k8iiqo71hk" path="res://art/StartScene/UI_Btn_Yes_Normal.png" id="10_yes"]
 [ext_resource type="Texture2D" uid="uid://cl64ah5j2uka0" path="res://art/StartScene/UI_Btn_No_Normal.png" id="11_no"]
@@ -92,75 +97,45 @@ offset_top = 499.0
 offset_right = 1756.0
 offset_bottom = 927.0
 
-[node name="StartButton" type="TextureButton" parent="Buttons" unique_id=1533729347]
+[node name="StartButton" parent="Buttons" unique_id=1533729347 instance=ExtResource("menu_button_scene")]
 custom_minimum_size = Vector2(565, 74)
 layout_mode = 0
 offset_right = 565.0
 offset_bottom = 74.0
-ignore_texture_size = true
-stretch_mode = 0
+normal_text_texture = ExtResource("btn_start_normal")
+hover_text_texture = ExtResource("btn_start_hover")
+enable_press_sweep = true
+press_sweep_duration = 0.66
 
-[node name="Img" type="TextureRect" parent="Buttons/StartButton" unique_id=1533729348]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -163.0
-grow_horizontal = 0
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("5_start")
-expand_mode = 1
-
-[node name="ContinueButton" type="TextureButton" parent="Buttons" unique_id=1413190849]
+[node name="ContinueButton" parent="Buttons" unique_id=1413190849 instance=ExtResource("menu_button_scene")]
 custom_minimum_size = Vector2(565, 74)
 layout_mode = 0
 offset_top = 118.0
 offset_right = 565.0
 offset_bottom = 192.0
-ignore_texture_size = true
-stretch_mode = 0
+normal_text_texture = ExtResource("btn_continue_normal")
+hover_text_texture = ExtResource("btn_continue_hover")
+enable_press_sweep = true
+press_sweep_duration = 0.66
 
-[node name="Img" type="TextureRect" parent="Buttons/ContinueButton" unique_id=1413190850]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -230.0
-grow_horizontal = 0
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("6_cont")
-expand_mode = 1
-
-[node name="SettingsButton" type="TextureButton" parent="Buttons" unique_id=875984873]
+[node name="SettingsButton" parent="Buttons" unique_id=875984873 instance=ExtResource("menu_button_scene")]
 custom_minimum_size = Vector2(565, 74)
 layout_mode = 0
 offset_top = 236.0
 offset_right = 565.0
 offset_bottom = 310.0
-ignore_texture_size = true
-stretch_mode = 0
+normal_text_texture = ExtResource("btn_settings_normal")
+hover_text_texture = ExtResource("btn_settings_hover")
+enable_press_sweep = true
+press_sweep_duration = 0.66
 
-[node name="Img" type="TextureRect" parent="Buttons/SettingsButton" unique_id=875984874]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -223.0
-grow_horizontal = 0
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("7_set")
-expand_mode = 1
-
-[node name="QuitButton" parent="Buttons" unique_id=650342611 instance=ExtResource("8_vfx_quit")]
+[node name="QuitButton" parent="Buttons" unique_id=650342611 instance=ExtResource("menu_button_scene")]
 layout_mode = 0
 offset_top = 354.0
+offset_right = 565.0
 offset_bottom = 428.0
+normal_text_texture = ExtResource("btn_quit_normal")
+hover_text_texture = ExtResource("btn_quit_hover")
 enable_press_sweep = true
 press_sweep_duration = 0.66
 

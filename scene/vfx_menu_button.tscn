@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c7ewo6762qgqd"]
 
-[ext_resource type="Script" uid="uid://btqn4cbtq4kgt" path="res://script/vfx_quit_button.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://btqn4cbtq4kgt" path="res://script/vfx_menu_button.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://b73fn8oc2mfp" path="res://art/StartScene/Buttons/BtnBG_Hover.png" id="2_bg"]
 [ext_resource type="Shader" uid="uid://do1ne1kjr6wkw" path="res://art/StartScene/Buttons/CRT.gdshader" id="3_crt"]
 [ext_resource type="Texture2D" uid="uid://bbjmi5lkunolq" path="res://art/StartScene/Buttons/Btn-Edge.png" id="4_edge"]
@@ -26,7 +26,7 @@ shader_parameter/sweep_width = 0.30800001393148
 shader_parameter/sweep_strength = 1.2390000588525
 shader_parameter/sweep_color = Color(0.8, 1, 0.9, 1)
 
-[node name="VFXQuitButton" type="TextureButton" unique_id=2065019611]
+[node name="VFXMenuButton" type="TextureButton" unique_id=2065019611]
 custom_minimum_size = Vector2(565, 74)
 offset_right = 565.0
 offset_bottom = 74.0
