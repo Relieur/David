@@ -3,10 +3,12 @@ extends Control
 ## 开始菜单主控脚本（对照 StartScene 美术资源与设计稿）
 ## - 四个主按钮：开始游戏 / 继续游戏（读档）/ 游戏设置 / 退出游戏
 ## - 已有存档时点「开始游戏」弹出确认框：「若选择开始游戏会覆盖旧存档 是否继续?」
-## - 按钮交互：normal 短版靠右，hover 切换为长版向左展开（带缓动）
+## - 按钮交互：Start / Continue / Settings 使用短版→长版展开；Quit 使用 VFX 按钮的悬停 Shader
 ## - 存档：进游戏后由 wolrd 场景负责自动保存（定时 + 关窗退出时），本界面只负责读档入口
 
 const WORLD_SCENE := "res://scene/wolrd.tscn"
+const QUIT_DELAY := 0.3
+const QUIT_FADE_TIME := 0.2
 
 ## 主按钮贴图：[normal 短版, hover 长版]
 const BTN_TEXTURES := {
@@ -21,10 +23,6 @@ const BTN_TEXTURES := {
 	"settings": [
 		preload("res://art/StartScene/UI_Btn_Settings_Normal.png"),
 		preload("res://art/StartScene/UI_Btn_Settings_Hover.png"),
-	],
-	"quit": [
-		preload("res://art/StartScene/UI_Btn_Quit_Normal.png"),
-		preload("res://art/StartScene/UI_Btn_Quit_Hover.png"),
 	],
 }
 
@@ -44,6 +42,9 @@ const NO_TEXTURES := [
 @onready var _master_slider: HSlider = $SettingsRoot/BG/MasterSlider
 @onready var _music_slider: HSlider = $SettingsRoot/BG/MusicSlider
 @onready var _fullscreen_check: CheckBox = $SettingsRoot/BG/FullscreenCheck
+@onready var _fade_overlay: ColorRect = $FadeOverlay
+
+var _quitting: bool = false
 
 
 func _ready() -> void:
@@ -54,7 +55,6 @@ func _ready() -> void:
 		"start": $Buttons/StartButton,
 		"continue": $Buttons/ContinueButton,
 		"settings": $Buttons/SettingsButton,
-		"quit": $Buttons/QuitButton,
 	}
 	for key in main_buttons:
 		var texs: Array = BTN_TEXTURES[key]
@@ -125,7 +125,18 @@ func _on_settings_pressed() -> void:
 
 
 func _on_quit_pressed() -> void:
+	if _quitting:
+		return
+	_quitting = true
 	GameManager.save_options()
+	# 播放 Shader sweep 后等待片刻，再用 0.2 秒渐黑并退出
+	_fade_overlay.modulate.a = 0.0
+	_fade_overlay.visible = true
+	await get_tree().create_timer(QUIT_DELAY).timeout
+	var tween := create_tween()
+	tween.tween_property(_fade_overlay, "modulate:a", 1.0, QUIT_FADE_TIME) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await tween.finished
 	get_tree().quit()
 
 
@@ -179,7 +190,7 @@ func _on_fullscreen_toggled(fullscreen: bool) -> void:
 
 
 # ==================== 按钮贴图交互 ====================
-# 主菜单按钮：热区固定 565×74 右对齐；子节点 Img 显示贴图，
+# 展开式主菜单按钮：热区固定 565×74 右对齐；子节点 Img 显示贴图，
 # normal 短版贴右缘，hover 长版向左展开（offset_left 带缓动）。
 func _setup_expand_button(btn: TextureButton, tex_normal: Texture2D, tex_hover: Texture2D) -> void:
 	var img: TextureRect = btn.get_node("Img")
