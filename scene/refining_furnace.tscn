@@ -2,13 +2,35 @@
 
 [ext_resource type="Script" uid="uid://bg4xvpg8d7ou" path="res://script/refining_furnace.gd" id="1_73vke"]
 [ext_resource type="Texture2D" uid="uid://bhegnafn4c5cr" path="res://art/Inventory_Idle.png" id="2_73vke"]
-[ext_resource type="Texture2D" uid="uid://c6aq6p5ie8msq" path="res://art/Inventory_active.png" id="3_73vke"]
+[ext_resource type="Texture2D" uid="uid://kqtafpm46edi" path="res://art/circle_05.png" id="3_o5mha"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3rt66"]
 size = Vector2(192, 192)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_solid"]
 size = Vector2(240, 240)
+
+[sub_resource type="Curve" id="Curve_snsg8"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.100418404, 0.9374045), 0.0, 0.0, 0, 0, Vector2(0.45327753, 0.38778627), -1.3172985, -1.3172985, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveTexture" id="CurveTexture_yat8p"]
+curve = SubResource("Curve_snsg8")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_3av40"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(20, 10, 1)
+direction = Vector3(0, -1, 0)
+initial_velocity_min = 15.0
+initial_velocity_max = 50.0
+gravity = Vector3(0, 0.1, 0)
+scale_min = 0.0
+scale_max = 0.02
+color = Color(2.0002677, 0.89251256, 0.3271755, 1)
+alpha_curve = SubResource("CurveTexture_yat8p")
+hue_variation_min = -0.020000022
+hue_variation_max = 0.019999977
 
 [node name="Furnace" type="Area2D" unique_id=1240451256]
 z_index = 10
@@ -18,7 +40,20 @@ script = ExtResource("1_73vke")
 texture = ExtResource("2_73vke")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1473297900]
+visible = false
 shape = SubResource("RectangleShape2D_3rt66")
+debug_color = Color(0.31764707, 0.56078434, 0.7529412, 0)
+
+[node name="BurningParticles" type="GPUParticles2D" parent="." unique_id=1177101579]
+position = Vector2(7, 54)
+amount = 20
+texture = ExtResource("3_o5mha")
+lifetime = 3.19
+explosiveness = 0.5
+randomness = 1.0
+trail_enabled = true
+trail_sections = 19
+process_material = SubResource("ParticleProcessMaterial_3av40")
 
 [node name="SolidBody" type="StaticBody2D" parent="."]
 collision_layer = 2
