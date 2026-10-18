@@ -1,0 +1,117 @@
+[gd_scene format=3 uid="uid://c7ewo6762qgqd"]
+
+[ext_resource type="Script" uid="uid://btqn4cbtq4kgt" path="res://script/vfx_quit_button.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://b73fn8oc2mfp" path="res://art/StartScene/Buttons/BtnBG_Hover.png" id="2_bg"]
+[ext_resource type="Shader" uid="uid://do1ne1kjr6wkw" path="res://art/StartScene/Buttons/CRT.gdshader" id="3_crt"]
+[ext_resource type="Texture2D" uid="uid://bbjmi5lkunolq" path="res://art/StartScene/Buttons/Btn-Edge.png" id="4_edge"]
+[ext_resource type="Texture2D" uid="uid://ux387svj7psb" path="res://art/StartScene/Buttons/Quit.png" id="5_normal_text"]
+[ext_resource type="Texture2D" uid="uid://dyosjfktelscd" path="res://art/StartScene/Buttons/Quit_Hover.png" id="6_hover_text"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+resource_local_to_scene = true
+shader = ExtResource("3_crt")
+shader_parameter/curvature = 0.0
+shader_parameter/scanline_count = 115.766003123885
+shader_parameter/scanline_strength = 0.1110000052725
+shader_parameter/chroma = 0.0070000003325
+shader_parameter/vignette_strength = 0.2770000131575
+shader_parameter/flicker = 0.010000000475
+shader_parameter/grid_color = Color(0.3, 1, 0.6, 1)
+shader_parameter/grid_size = 18.0
+shader_parameter/grid_line_width = 1.0
+shader_parameter/grid_strength = 0.15
+shader_parameter/grid_speed = 20.0
+shader_parameter/sweep_progress = 1.2
+shader_parameter/sweep_width = 0.30800001393148
+shader_parameter/sweep_strength = 1.2390000588525
+shader_parameter/sweep_color = Color(0.8, 1, 0.9, 1)
+
+[node name="VFXQuitButton" type="TextureButton" unique_id=2065019611]
+custom_minimum_size = Vector2(565, 74)
+offset_right = 565.0
+offset_bottom = 74.0
+mouse_default_cursor_shape = 2
+ignore_texture_size = true
+stretch_mode = 0
+script = ExtResource("1_script")
+
+[node name="NormalLayer" type="Control" parent="." unique_id=321046591]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NormalText" type="TextureRect" parent="NormalLayer" unique_id=980066728]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -121.0
+offset_top = -16.5
+offset_right = -28.0
+offset_bottom = 16.5
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_normal_text")
+expand_mode = 1
+
+[node name="HoverLayer" type="Control" parent="." unique_id=1253895705]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HoverBG" type="TextureRect" parent="HoverLayer" unique_id=1565372370]
+material = SubResource("ShaderMaterial_crt")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+
+[node name="HoverText" type="TextureRect" parent="HoverLayer" unique_id=1128511543]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -144.0
+offset_top = -35.0
+offset_right = -19.0
+offset_bottom = 38.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_hover_text")
+expand_mode = 1
+
+[node name="Edge" type="TextureRect" parent="." unique_id=337744393]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -3.0
+offset_top = -37.0
+offset_bottom = 37.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("4_edge")
+expand_mode = 1

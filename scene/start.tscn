@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://dqst3t68oo0ga" path="res://art/StartScene/UI_Btn_Start_Normal.png" id="5_start"]
 [ext_resource type="Texture2D" uid="uid://bbv17ce0xxqs1" path="res://art/StartScene/UI_Btn_Continue_Normal.png" id="6_cont"]
 [ext_resource type="Texture2D" uid="uid://by5qxov6kn7hb" path="res://art/StartScene/UI_Btn_Settings_Normal.png" id="7_set"]
-[ext_resource type="Texture2D" uid="uid://b03q3c3pfofq5" path="res://art/StartScene/UI_Btn_Quit_Normal.png" id="8_quit"]
+[ext_resource type="PackedScene" uid="uid://c7ewo6762qgqd" path="res://scene/vfx_quit_button.tscn" id="8_vfx_quit"]
 [ext_resource type="Texture2D" uid="uid://bo44tafqlkhfx" path="res://art/StartScene/UI_Bg_Window.png" id="9_win"]
 [ext_resource type="Texture2D" uid="uid://cd0k8iiqo71hk" path="res://art/StartScene/UI_Btn_Yes_Normal.png" id="10_yes"]
 [ext_resource type="Texture2D" uid="uid://cl64ah5j2uka0" path="res://art/StartScene/UI_Btn_No_Normal.png" id="11_no"]
@@ -68,6 +68,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.03, 1.03)
+pivot_offset = Vector2(960, 540)
 mouse_filter = 2
 texture = ExtResource("3_bg")
 expand_mode = 1
@@ -82,17 +84,19 @@ mouse_filter = 2
 texture = ExtResource("4_title")
 expand_mode = 1
 
-[node name="Buttons" type="VBoxContainer" parent="." unique_id=864011606]
+[node name="Buttons" type="Control" parent="." unique_id=864011606]
 layout_mode = 1
-offset_left = 1188.0
-offset_top = 537.0
-offset_right = 1753.0
-offset_bottom = 965.0
-theme_override_constants/separation = 44
+anchors_preset = 0
+offset_left = 1191.0
+offset_top = 499.0
+offset_right = 1756.0
+offset_bottom = 927.0
 
 [node name="StartButton" type="TextureButton" parent="Buttons" unique_id=1533729347]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_right = 565.0
+offset_bottom = 74.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -111,7 +115,10 @@ expand_mode = 1
 
 [node name="ContinueButton" type="TextureButton" parent="Buttons" unique_id=1413190849]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_top = 118.0
+offset_right = 565.0
+offset_bottom = 192.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -130,7 +137,10 @@ expand_mode = 1
 
 [node name="SettingsButton" type="TextureButton" parent="Buttons" unique_id=875984873]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_top = 236.0
+offset_right = 565.0
+offset_bottom = 310.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -147,26 +157,15 @@ mouse_filter = 2
 texture = ExtResource("7_set")
 expand_mode = 1
 
-[node name="QuitButton" type="TextureButton" parent="Buttons" unique_id=1998205364]
-custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Img" type="TextureRect" parent="Buttons/QuitButton" unique_id=1998205365]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -116.0
-grow_horizontal = 0
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("8_quit")
-expand_mode = 1
+[node name="QuitButton" parent="Buttons" unique_id=650342611 instance=ExtResource("8_vfx_quit")]
+layout_mode = 0
+offset_top = 354.0
+offset_bottom = 428.0
+enable_press_sweep = true
+press_sweep_duration = 0.66
 
 [node name="ConfirmRoot" type="Control" parent="." unique_id=1061073574]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -272,6 +271,7 @@ texture = ExtResource("11_no")
 expand_mode = 1
 
 [node name="SettingsRoot" type="Control" parent="." unique_id=1011848784]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -508,3 +508,14 @@ theme_override_styles/normal = SubResource("SBF_quitbtn")
 theme_override_styles/pressed = SubResource("SBF_quitbtn")
 theme_override_styles/hover = SubResource("SBF_quitbtn")
 text = "退出游戏"
+
+[node name="FadeOverlay" type="ColorRect" parent="." unique_id=1693530735]
+visible = false
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)

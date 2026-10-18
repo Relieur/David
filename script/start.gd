@@ -3,10 +3,12 @@ extends Control
 ## 开始菜单主控脚本（对照 StartScene 美术资源与设计稿）
 ## - 四个主按钮：开始游戏 / 继续游戏（读档）/ 游戏设置 / 退出游戏
 ## - 已有存档时点「开始游戏」弹出确认框：「若选择开始游戏会覆盖旧存档 是否继续?」
-## - 按钮交互：normal 短版靠右，hover 切换为长版向左展开（带缓动）
+## - 按钮交互：Start / Continue / Settings 使用短版→长版展开；Quit 使用 VFX 按钮的悬停 Shader
 ## - 存档：进游戏后由 wolrd 场景负责自动保存（定时 + 关窗退出时），本界面只负责读档入口
 
 const WORLD_SCENE := "res://scene/wolrd.tscn"
+const QUIT_DELAY := 0.3
+const QUIT_FADE_TIME := 0.2
 
 ## 主按钮贴图：[normal 短版, hover 长版]
 const BTN_TEXTURES := {
@@ -22,10 +24,6 @@ const BTN_TEXTURES := {
 		preload("res://art/StartScene/UI_Btn_Settings_Normal.png"),
 		preload("res://art/StartScene/UI_Btn_Settings_Hover.png"),
 	],
-	"quit": [
-		preload("res://art/StartScene/UI_Btn_Quit_Normal.png"),
-		preload("res://art/StartScene/UI_Btn_Quit_Hover.png"),
-	],
 }
 
 ## 确认框 是/否 贴图：[normal, hover]
@@ -38,12 +36,25 @@ const NO_TEXTURES := [
 	preload("res://art/StartScene/UI_Btn_No_Hover.png"),
 ]
 
+## 鼠标视差：默认顺序为 BG、Title、Start、Continue、Settings、Quit。
+## 正数跟随鼠标移动，负数反向移动；绝对值越大，图层越“近”。
+@export_group("Parallax")
+@export var parallax_layer_nodes: Array[Control] = []
+@export var parallax_strengths: Array[float] = [-8.0, 10.0, 16.0, 20.0, 24.0, 28.0]
+@export_range(1.0, 20.0, 0.1) var parallax_smoothing: float = 8.0
+
 @onready var _confirm_root: Control = $ConfirmRoot
 @onready var _settings_root: Control = $SettingsRoot
 @onready var _sfx_slider: HSlider = $SettingsRoot/BG/SfxSlider
 @onready var _master_slider: HSlider = $SettingsRoot/BG/MasterSlider
 @onready var _music_slider: HSlider = $SettingsRoot/BG/MusicSlider
 @onready var _fullscreen_check: CheckBox = $SettingsRoot/BG/FullscreenCheck
+@onready var _fade_overlay: ColorRect = $FadeOverlay
+@onready var _bg: TextureRect = $BG
+
+var _quitting: bool = false
+var _parallax_base_positions: Array[Vector2] = []
+var _parallax_current := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -54,7 +65,6 @@ func _ready() -> void:
 		"start": $Buttons/StartButton,
 		"continue": $Buttons/ContinueButton,
 		"settings": $Buttons/SettingsButton,
-		"quit": $Buttons/QuitButton,
 	}
 	for key in main_buttons:
 		var texs: Array = BTN_TEXTURES[key]
@@ -93,6 +103,7 @@ func _ready() -> void:
 		or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	_settings_root.visible = false
+	_setup_parallax()
 
 
 # 直接关闭窗口时也保存音量设置
@@ -124,8 +135,97 @@ func _on_settings_pressed() -> void:
 	_settings_root.visible = true
 
 
+# ==================== 鼠标视差 ====================
+func _setup_parallax() -> void:
+	if parallax_layer_nodes.is_empty():
+		var default_layers: Array[Control] = [
+			$BG,
+			$Title,
+			$Buttons/StartButton,
+			$Buttons/ContinueButton,
+			$Buttons/SettingsButton,
+			$Buttons/QuitButton,
+		]
+		parallax_layer_nodes = default_layers
+	if parallax_strengths.size() < parallax_layer_nodes.size():
+		parallax_strengths.resize(parallax_layer_nodes.size())
+	_update_bg_pivot()
+	_capture_parallax_base_positions()
+	resized.connect(_on_start_resized)
+
+
+func _process(delta: float) -> void:
+	if parallax_layer_nodes.is_empty():
+		return
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+	var mouse := get_viewport().get_mouse_position()
+	var target := (mouse / viewport_size - Vector2(0.5, 0.5)) * 2.0
+	target = target.clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
+	_parallax_current = _parallax_current.lerp(
+		target, 1.0 - exp(-parallax_smoothing * delta)
+	)
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer == null:
+			continue
+		layer.position = _parallax_base_positions[i] \
+			+ _parallax_current * _get_parallax_strength(i)
+
+
+func _on_start_resized() -> void:
+	# 等锚点布局完成后再重记基准位置，避免窗口尺寸变化后产生累计偏移
+	call_deferred("_refresh_parallax_layout")
+
+
+func _refresh_parallax_layout() -> void:
+	_update_bg_pivot()
+	_capture_parallax_base_positions()
+	_parallax_current = Vector2.ZERO
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer != null:
+			layer.position = _parallax_base_positions[i]
+
+
+func _update_bg_pivot() -> void:
+	var bg_size := _bg.size
+	if bg_size == Vector2.ZERO:
+		bg_size = get_viewport_rect().size
+	_bg.pivot_offset = bg_size * 0.5
+
+
+func _capture_parallax_base_positions() -> void:
+	_parallax_base_positions.clear()
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer == null:
+			_parallax_base_positions.append(Vector2.ZERO)
+			continue
+		# 窗口变化时先扣掉当前视差位移，记录真正的布局基准
+		_parallax_base_positions.append(
+			layer.position - _parallax_current * _get_parallax_strength(i)
+		)
+
+
+func _get_parallax_strength(index: int) -> float:
+	return parallax_strengths[index] if index < parallax_strengths.size() else 0.0
+
+
 func _on_quit_pressed() -> void:
+	if _quitting:
+		return
+	_quitting = true
 	GameManager.save_options()
+	# 播放 Shader sweep 后等待片刻，再用 0.2 秒渐黑并退出
+	_fade_overlay.modulate.a = 0.0
+	_fade_overlay.visible = true
+	await get_tree().create_timer(QUIT_DELAY).timeout
+	var tween := create_tween()
+	tween.tween_property(_fade_overlay, "modulate:a", 1.0, QUIT_FADE_TIME) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await tween.finished
 	get_tree().quit()
 
 
@@ -179,7 +279,7 @@ func _on_fullscreen_toggled(fullscreen: bool) -> void:
 
 
 # ==================== 按钮贴图交互 ====================
-# 主菜单按钮：热区固定 565×74 右对齐；子节点 Img 显示贴图，
+# 展开式主菜单按钮：热区固定 565×74 右对齐；子节点 Img 显示贴图，
 # normal 短版贴右缘，hover 长版向左展开（offset_left 带缓动）。
 func _setup_expand_button(btn: TextureButton, tex_normal: Texture2D, tex_hover: Texture2D) -> void:
 	var img: TextureRect = btn.get_node("Img")
