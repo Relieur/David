@@ -36,6 +36,13 @@ const NO_TEXTURES := [
 	preload("res://art/StartScene/UI_Btn_No_Hover.png"),
 ]
 
+## 鼠标视差：默认顺序为 BG、Title、Start、Continue、Settings、Quit。
+## 正数跟随鼠标移动，负数反向移动；绝对值越大，图层越“近”。
+@export_group("Parallax")
+@export var parallax_layer_nodes: Array[Control] = []
+@export var parallax_strengths: Array[float] = [-8.0, 10.0, 16.0, 20.0, 24.0, 28.0]
+@export_range(1.0, 20.0, 0.1) var parallax_smoothing: float = 8.0
+
 @onready var _confirm_root: Control = $ConfirmRoot
 @onready var _settings_root: Control = $SettingsRoot
 @onready var _sfx_slider: HSlider = $SettingsRoot/BG/SfxSlider
@@ -43,8 +50,11 @@ const NO_TEXTURES := [
 @onready var _music_slider: HSlider = $SettingsRoot/BG/MusicSlider
 @onready var _fullscreen_check: CheckBox = $SettingsRoot/BG/FullscreenCheck
 @onready var _fade_overlay: ColorRect = $FadeOverlay
+@onready var _bg: TextureRect = $BG
 
 var _quitting: bool = false
+var _parallax_base_positions: Array[Vector2] = []
+var _parallax_current := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -93,6 +103,7 @@ func _ready() -> void:
 		or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	_settings_root.visible = false
+	_setup_parallax()
 
 
 # 直接关闭窗口时也保存音量设置
@@ -122,6 +133,84 @@ func _on_continue_pressed() -> void:
 
 func _on_settings_pressed() -> void:
 	_settings_root.visible = true
+
+
+# ==================== 鼠标视差 ====================
+func _setup_parallax() -> void:
+	if parallax_layer_nodes.is_empty():
+		var default_layers: Array[Control] = [
+			$BG,
+			$Title,
+			$Buttons/StartButton,
+			$Buttons/ContinueButton,
+			$Buttons/SettingsButton,
+			$Buttons/QuitButton,
+		]
+		parallax_layer_nodes = default_layers
+	if parallax_strengths.size() < parallax_layer_nodes.size():
+		parallax_strengths.resize(parallax_layer_nodes.size())
+	_update_bg_pivot()
+	_capture_parallax_base_positions()
+	resized.connect(_on_start_resized)
+
+
+func _process(delta: float) -> void:
+	if parallax_layer_nodes.is_empty():
+		return
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+	var mouse := get_viewport().get_mouse_position()
+	var target := (mouse / viewport_size - Vector2(0.5, 0.5)) * 2.0
+	target = target.clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
+	_parallax_current = _parallax_current.lerp(
+		target, 1.0 - exp(-parallax_smoothing * delta)
+	)
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer == null:
+			continue
+		layer.position = _parallax_base_positions[i] \
+			+ _parallax_current * _get_parallax_strength(i)
+
+
+func _on_start_resized() -> void:
+	# 等锚点布局完成后再重记基准位置，避免窗口尺寸变化后产生累计偏移
+	call_deferred("_refresh_parallax_layout")
+
+
+func _refresh_parallax_layout() -> void:
+	_update_bg_pivot()
+	_capture_parallax_base_positions()
+	_parallax_current = Vector2.ZERO
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer != null:
+			layer.position = _parallax_base_positions[i]
+
+
+func _update_bg_pivot() -> void:
+	var bg_size := _bg.size
+	if bg_size == Vector2.ZERO:
+		bg_size = get_viewport_rect().size
+	_bg.pivot_offset = bg_size * 0.5
+
+
+func _capture_parallax_base_positions() -> void:
+	_parallax_base_positions.clear()
+	for i in parallax_layer_nodes.size():
+		var layer := parallax_layer_nodes[i]
+		if layer == null:
+			_parallax_base_positions.append(Vector2.ZERO)
+			continue
+		# 窗口变化时先扣掉当前视差位移，记录真正的布局基准
+		_parallax_base_positions.append(
+			layer.position - _parallax_current * _get_parallax_strength(i)
+		)
+
+
+func _get_parallax_strength(index: int) -> float:
+	return parallax_strengths[index] if index < parallax_strengths.size() else 0.0
 
 
 func _on_quit_pressed() -> void:

@@ -68,6 +68,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.03, 1.03)
+pivot_offset = Vector2(960, 540)
 mouse_filter = 2
 texture = ExtResource("3_bg")
 expand_mode = 1
@@ -82,17 +84,19 @@ mouse_filter = 2
 texture = ExtResource("4_title")
 expand_mode = 1
 
-[node name="Buttons" type="VBoxContainer" parent="." unique_id=864011606]
+[node name="Buttons" type="Control" parent="." unique_id=864011606]
 layout_mode = 1
-offset_left = 1188.0
-offset_top = 537.0
-offset_right = 1753.0
-offset_bottom = 965.0
-theme_override_constants/separation = 44
+anchors_preset = 0
+offset_left = 1191.0
+offset_top = 499.0
+offset_right = 1756.0
+offset_bottom = 927.0
 
 [node name="StartButton" type="TextureButton" parent="Buttons" unique_id=1533729347]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_right = 565.0
+offset_bottom = 74.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -111,7 +115,10 @@ expand_mode = 1
 
 [node name="ContinueButton" type="TextureButton" parent="Buttons" unique_id=1413190849]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_top = 118.0
+offset_right = 565.0
+offset_bottom = 192.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -130,7 +137,10 @@ expand_mode = 1
 
 [node name="SettingsButton" type="TextureButton" parent="Buttons" unique_id=875984873]
 custom_minimum_size = Vector2(565, 74)
-layout_mode = 2
+layout_mode = 0
+offset_top = 236.0
+offset_right = 565.0
+offset_bottom = 310.0
 ignore_texture_size = true
 stretch_mode = 0
 
@@ -148,11 +158,14 @@ texture = ExtResource("7_set")
 expand_mode = 1
 
 [node name="QuitButton" parent="Buttons" unique_id=650342611 instance=ExtResource("8_vfx_quit")]
-layout_mode = 2
+layout_mode = 0
+offset_top = 354.0
+offset_bottom = 428.0
 enable_press_sweep = true
 press_sweep_duration = 0.66
 
 [node name="ConfirmRoot" type="Control" parent="." unique_id=1061073574]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -258,6 +271,7 @@ texture = ExtResource("11_no")
 expand_mode = 1
 
 [node name="SettingsRoot" type="Control" parent="." unique_id=1011848784]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
