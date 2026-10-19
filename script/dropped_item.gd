@@ -2,7 +2,7 @@ extends Area2D
 class_name DroppedItem
 
 @export var item_type: String = "copper"
-@export var amount: int = 1
+@export var amount: float = 1.0
 
 @onready var sprite_2d: Sprite2D = $Sprite2D
 
@@ -67,7 +67,7 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 			return
 		# 掉落物优先响应：吞掉本次输入，避免底下的矿点误触发挖矿
 		get_viewport().set_input_as_handled()
-		_fly_home()
+		fly_to_furnace()
 
 
 # 找离自己最近的精炼炉
@@ -86,7 +86,8 @@ func _find_nearest_furnace() -> Node2D:
 
 
 # 飞向最近的精炼炉，到达后投入烧制
-func _fly_home() -> void:
+# 玩家挖矿掉落时会自动调用一次；玩家点击地上的掉落物也走这里
+func fly_to_furnace() -> void:
 	if _deposited:
 		return
 	var furnace := _find_nearest_furnace()

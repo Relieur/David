@@ -4,16 +4,17 @@ class_name RefiningFurnace   #精炼炉
 const TILE_SIZE := 64
 
 const SMELT_INTERVAL_BASE := 2.0      # 基础烧制耗时（秒）
-const SMELT_TIME_PER_LEVEL := 0.25    # 「煅烧速度」每级减少的烧制耗时（秒）
-const DOUBLE_SMELT_BASE_CHANCE := 0.15  # 「无中生有」触发双倍产出的基础概率
-const CRIT_CHANCE_PER_LEVEL := 0.15     # 「暴击率」每级增加的双倍产出概率
+const SMELT_TIME_PER_LEVEL := 0.36    # 「煅烧速度」每级减少的烧制耗时（秒）
+const DOUBLE_SMELT_BASE_CHANCE := 0.15  # 「无中生有」一次烧两份矿的基础概率
+const CRIT_CHANCE_PER_LEVEL := 0.15     # 「暴击率」每级增加的一次烧两份矿概率
 const ORES_PER_INGOT := 1             # 每个原矿产出 1 个铜锭
+const SUPER_SMELT_BONUS_PER_LEVEL := 0.3  # 「超级炼钢厂」每级每烧 1 份矿额外产出的铜锭（小数累计）
 const ORE_TYPE := "copper"            # 输入：铜原矿
 const INGOT_TYPE := "copper_ingot"    # 产出：铜锭
 
-const FLOATER_DURATION := 0.9         # 「+N」浮动文字的存在时长（秒）
-const FLOATER_RISE := 42.0            # 「+N」浮动文字的上升距离（像素）
-const FLOATER_COLOR := Color(0.40, 0.78, 1.0, 1.0)  # 「+N」字色：蓝色（与机器人采矿的绿色 +1 区分）
+const FLOATER_DURATION := 0.9         # 烧制完成时铜锭图标的存在时长（秒）
+const FLOATER_RISE := 42.0            # 铜锭图标的上升距离（像素）
+const FLOATER_TEXTURE := preload("res://art/Ore/ingot.png")  # 烧制完成的提示贴图（按素材原始尺寸绘制）
 
 # 炉体外观：默认待机 / 燃烧中
 const SPRITE_IDLE := preload("res://art/Inventory_Idle.png")
@@ -27,6 +28,7 @@ const BURN_FADE_DURATION := 0.18       # 待机 ↔ 燃烧的贴图交叉过渡�
 # 炉子越多（扩建精炼炉最多 6 个）、烧制科技越高（烧得越快→冷得越快），玩家越忙。
 const HEAT_MAX := 100.0            # 满炉温
 const HEAT_DECAY := 3.0            # 基准降温速度（每秒），满温约 33 秒烧尽
+const HEAT_KEEP_PER_LEVEL := 0.75  # 「恒温」每级把降温速率乘以该系数（满级约 ×0.24）
 const HEAT_PER_FAN := 35.0         # 每次鼓风回复的炉温
 const FAN_COOLDOWN := 0.35         # 鼓风冷却（秒），防连点瞬满
 const HEAT_MIN_EFFICIENCY := 0.4   # 炉温归零时的最低烧制效率（不至于完全停摆）
@@ -44,14 +46,15 @@ var _fade_tween: Tween = null            # 贴图过渡 tween
 @export var burning_particles_path: NodePath = ^"BurningParticles"
 
 var _smelt_timer: float = 0.0        # 当前铜锭的烧制计时
-var _ore_stock: int = 0              # 本炉独立存储的待烧铜矿数量（不与其它炉共享）
+var _ore_stock: float = 0.0          # 本炉独立存储的待烧铜矿数量（不与其它炉共享，可为小数）
 var _is_active: bool = true          # 是否已启用（预放置的炉子开局只有名字最小的那个启用）
-var _floaters: Array = []            # 烧制完成时「+N」浮动效果列表
+var _floaters: Array = []            # 烧制完成时冒出的铜锭图标列表
 var _burning: bool = false           # 本炉是否正在燃烧（用于炉火音效的启停判断）
 var _heat: float = HEAT_MAX          # 当前炉温（0~100）
 var _fan_cooldown: float = 0.0       # 鼓风冷却计时
 var _warn_pulse: float = 0.0         # 低炉温光圈呼吸相位
 var _particle_amount: int = -1       # 上次设置的粒子数量（只在量化值变化时重建粒子缓冲）
+var _bonus_carry: float = 0.0        # 「超级炼钢厂」产出的小数累计：铜锭保持整数，攒满 1 个才真正发放
 
 
 func _ready() -> void:
@@ -140,9 +143,12 @@ func get_heat_efficiency() -> float:
 # 这样后期「炉子多 + 烧得快」时玩家的操作量才跟得上自动化带来的产能。
 func _get_heat_decay() -> float:
 	var interval := _get_smelt_interval()
-	if interval <= 0.0:
-		return HEAT_DECAY
-	return HEAT_DECAY * (0.6 + 0.4 * SMELT_INTERVAL_BASE / interval)
+	var base := HEAT_DECAY
+	if interval > 0.0:
+		base = HEAT_DECAY * (0.6 + 0.4 * SMELT_INTERVAL_BASE / interval)
+	# 「恒温」科技：每级把降温速率乘以 0.75（满级约 ×0.24），让炉温掉得更慢、减少鼓风频率
+	var keep_level := GameManager.get_tech_level("heat_keep")
+	return base * pow(HEAT_KEEP_PER_LEVEL, float(keep_level))
 
 
 # 玩家鼓风：回复炉温；冷却中或已停用时无效
@@ -213,33 +219,44 @@ func _process(delta: float) -> void:
 	# 鼓风冷却
 	if _fan_cooldown > 0.0:
 		_fan_cooldown = maxf(0.0, _fan_cooldown - delta)
-	var burning := _ore_stock > 0
+	# 炉内铜矿不足 1 个（只挖到小数）时不点火烧制，等凑够 1 个再开始
+	var burning := _ore_stock >= float(ORES_PER_INGOT)
 	_set_burning(burning)
 	# 炉温低于 30：光圈呼吸提示，需要每帧重绘
 	if _heat <= HEAT_MAX * HEAT_WARN_RATIO:
 		_warn_pulse += delta
 		dirty = true
-	if _ore_stock > 0:
+	if _ore_stock >= float(ORES_PER_INGOT):
 		# 炉温只在燃烧时下降（空炉不惩罚），并同步火焰表现
 		var prev_heat := _heat
 		_heat = maxf(0.0, _heat - _get_heat_decay() * delta)
-		# 炉温首次降到 0 的瞬间：发出信号（供剧情引导「记得鼓风」等监听）
-		if prev_heat > 0.0 and _heat <= 0.0:
-			GameManager.furnace_heat_empty.emit(self)
+		# 炉温首次跌破「低炉温」阈值（与绿圈 HEAT_WARN_RATIO 同一阈值）的瞬间发出信号，
+		# 让「记得鼓风」提示与绿圈同时出现（供剧情引导等监听）
+		var warn_heat := HEAT_MAX * HEAT_WARN_RATIO
+		if prev_heat > warn_heat and _heat <= warn_heat:
+			GameManager.furnace_heat_low.emit(self)
 		_apply_heat_visual()
 		var interval := _get_smelt_interval()
 		# 炉温直接放大烧制进度：温度高=烧得快
 		_smelt_timer += delta * get_heat_efficiency()
-		while _smelt_timer >= interval and _ore_stock > 0:
+		while _smelt_timer >= interval and _ore_stock >= float(ORES_PER_INGOT):
 			_smelt_timer -= interval
-			_ore_stock -= 1
-			# 「无中生有」+「暴击率」：有概率一次烧出两个铜锭
-			var gained := ORES_PER_INGOT
-			if randf() < _get_double_chance():
-				gained = ORES_PER_INGOT * 2
+			# 「无中生有」+「暴击率」：有概率一次烧两份矿（同步消耗两份矿、产出两份锭）
+			var batch := ORES_PER_INGOT
+			if _ore_stock >= float(ORES_PER_INGOT * 2) and randf() < _get_double_chance():
+				batch = ORES_PER_INGOT * 2
+			_ore_stock -= float(batch)
+			var gained := batch
+			# 「超级炼钢厂」：每烧 1 份矿额外攒 0.3×等级 个铜锭，攒满整数才发放（铜锭保持整数）
+			_bonus_carry += _get_super_smelt_bonus() * float(batch)
+			var extra := int(floor(_bonus_carry))
+			if extra > 0:
+				_bonus_carry -= float(extra)
+				gained += extra
 			GameManager.add_item(INGOT_TYPE, gained)
-			# 每烧制完成一次，在炉子上方弹出一个「+N」
-			_spawn_floater("+%d" % gained)
+			# 产出几个铜锭就在炉子上方冒出几个铜锭图标
+			for i in gained:
+				_spawn_floater()
 		dirty = true
 	elif _smelt_timer != 0.0:
 		_smelt_timer = 0.0
@@ -303,10 +320,9 @@ func _apply_burning_visual(burning: bool) -> void:
 	_set_particles_emitting(burning)
 
 
-# ==================== 「+N」浮动效果 ====================
-func _spawn_floater(text: String) -> void:
+# ==================== 烧制完成的铜锭图标 ====================
+func _spawn_floater() -> void:
 	_floaters.append({
-		"text": text,
 		"elapsed": 0.0,
 		"offset_x": randf_range(-14.0, 14.0),
 		"offset_y": randf_range(-4.0, 4.0),
@@ -326,7 +342,7 @@ func _update_floaters(delta: float) -> bool:
 	return true
 
 
-# 当前双倍产出概率：未解锁「无中生有」为 0，否则 15% + 每级「暴击率」+15%
+# 当前「一次烧两份矿」的概率：未解锁「无中生有」为 0，否则 15% + 每级「暴击率」+15%
 func _get_double_chance() -> float:
 	if not GameManager.is_tech_unlocked("double_smelt"):
 		return 0.0
@@ -334,22 +350,29 @@ func _get_double_chance() -> float:
 	return DOUBLE_SMELT_BASE_CHANCE + CRIT_CHANCE_PER_LEVEL * float(crit_level)
 
 
-# 当前烧制耗时：基础 2.0 秒，每级「煅烧速度」-0.25 秒（留最小间隔防止除零/节奏异常）
+# 「超级炼钢厂」每烧 1 份矿额外产出的铜锭数：未解锁为 0，每级 +0.3
+func _get_super_smelt_bonus() -> float:
+	return SUPER_SMELT_BONUS_PER_LEVEL * float(GameManager.get_tech_level("super_smelter"))
+
+
+# 当前烧制耗时：基础 2.0 秒，每级「煅烧速度」-0.36 秒，满级 5 级为 0.2 秒/锭
 func _get_smelt_interval() -> float:
 	var level := GameManager.get_tech_level("smelt_speed")
 	return maxf(0.1, SMELT_INTERVAL_BASE - SMELT_TIME_PER_LEVEL * float(level))
 
 
-# 投入铜矿：存进本炉独立库存（机器人卸货 / 掉落物飞入）
-func deposit_ore(amount: int) -> void:
-	if amount <= 0:
+# 投入铜矿：存进本炉独立库存（机器人卸货 / 掉落物飞入），允许小数
+func deposit_ore(amount: float) -> void:
+	if amount <= 0.0:
 		return
 	_ore_stock += amount
+	# 通知 HUD 本次入炉量（浮字用；只报投放量，不受随后烧制消耗影响）
+	GameManager.ore_deposited.emit(amount)
 	queue_redraw()
 
 
-# 本炉当前待烧铜矿数量（供外部查询，如显示/调试）
-func get_ore_stock() -> int:
+# 本炉当前待烧铜矿数量（供外部查询，如显示/调试），可能带小数
+func get_ore_stock() -> float:
 	return _ore_stock
 
 
@@ -362,8 +385,8 @@ func get_smelt_timer() -> float:
 
 
 # 读档恢复：待烧矿 / 炉温 / 烧制进度
-func restore_state(ore_stock: int, heat: float, smelt_timer: float) -> void:
-	_ore_stock = maxi(0, ore_stock)
+func restore_state(ore_stock: float, heat: float, smelt_timer: float) -> void:
+	_ore_stock = maxf(0.0, ore_stock)
 	_heat = clampf(heat, 0.0, HEAT_MAX)
 	_smelt_timer = maxf(0.0, smelt_timer)
 	_particle_amount = -1
@@ -373,7 +396,7 @@ func restore_state(ore_stock: int, heat: float, smelt_timer: float) -> void:
 # 烧制进度条 + 「+N」浮动文字（进度条仅在本炉库存有铜矿时显示）
 func _draw() -> void:
 	var bar_y := -_get_half_height() - 18.0
-	if _ore_stock > 0:
+	if _ore_stock >= float(ORES_PER_INGOT):
 		var ratio := clampf(_smelt_timer / _get_smelt_interval(), 0.0, 1.0)
 		var bar_w := 96.0
 		var bar_h := 10.0
@@ -384,25 +407,19 @@ func _draw() -> void:
 	# 炉温低于 30：炉体周围加一圈荧光绿提示光圈
 	if _heat <= HEAT_MAX * HEAT_WARN_RATIO:
 		_draw_warn_ring()
-	# 烧制完成的「+N」：在进度条上方升起并淡出
+	# 烧制完成的铜锭图标：在进度条上方升起并淡出
 	if _floaters.is_empty():
 		return
-	var font := ThemeDB.fallback_font
-	if font == null:
-		return
+	var icon_size := FLOATER_TEXTURE.get_size()
 	for f in _floaters:
 		var t: float = float(f["elapsed"]) / FLOATER_DURATION
 		var alpha: float = clampf(1.0 - t, 0.0, 1.0)
 		var pos := Vector2(float(f["offset_x"]), bar_y - 6.0 - t * FLOATER_RISE + float(f["offset_y"]))
-		var w := 140.0
-		draw_string(
-			font,
-			pos + Vector2(-w * 0.5, 0.0),
-			String(f["text"]),
-			HORIZONTAL_ALIGNMENT_CENTER,
-			w,
-			48,
-			Color(FLOATER_COLOR.r, FLOATER_COLOR.g, FLOATER_COLOR.b, alpha)
+		draw_texture_rect(
+			FLOATER_TEXTURE,
+			Rect2(pos - icon_size * 0.5, icon_size),
+			false,
+			Color(1, 1, 1, alpha)
 		)
 
 

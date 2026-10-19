@@ -3,28 +3,12 @@ extends Control
 ## 开始菜单主控脚本（对照 StartScene 美术资源与设计稿）
 ## - 四个主按钮：开始游戏 / 继续游戏（读档）/ 游戏设置 / 退出游戏
 ## - 已有存档时点「开始游戏」弹出确认框：「若选择开始游戏会覆盖旧存档 是否继续?」
-## - 按钮交互：Start / Continue / Settings 使用短版→长版展开；Quit 使用 VFX 按钮的悬停 Shader
+## - 按钮交互：四个主按钮统一使用 VFX 按钮的悬停 Shader 与按下扫光
 ## - 存档：进游戏后由 wolrd 场景负责自动保存（定时 + 关窗退出时），本界面只负责读档入口
 
 const WORLD_SCENE := "res://scene/wolrd.tscn"
-const QUIT_DELAY := 0.3
-const QUIT_FADE_TIME := 0.2
-
-## 主按钮贴图：[normal 短版, hover 长版]
-const BTN_TEXTURES := {
-	"start": [
-		preload("res://art/StartScene/UI_Btn_Start_Normal.png"),
-		preload("res://art/StartScene/UI_Btn_Start_Hover.png"),
-	],
-	"continue": [
-		preload("res://art/StartScene/UI_Btn_Continue_Normal.png"),
-		preload("res://art/StartScene/UI_Btn_Continue_Hover.png"),
-	],
-	"settings": [
-		preload("res://art/StartScene/UI_Btn_Settings_Normal.png"),
-		preload("res://art/StartScene/UI_Btn_Settings_Hover.png"),
-	],
-}
+const TRANSITION_DELAY := 0.3
+const TRANSITION_FADE_TIME := 0.2
 
 ## 确认框 是/否 贴图：[normal, hover]
 const YES_TEXTURES := [
@@ -52,7 +36,7 @@ const NO_TEXTURES := [
 @onready var _fade_overlay: ColorRect = $FadeOverlay
 @onready var _bg: TextureRect = $BG
 
-var _quitting: bool = false
+var _transitioning: bool = false
 var _parallax_base_positions: Array[Vector2] = []
 var _parallax_current := Vector2.ZERO
 
@@ -60,15 +44,7 @@ var _parallax_current := Vector2.ZERO
 func _ready() -> void:
 	# 开始界面背景音乐
 	GameManager.play_bgm(GameManager.BGM_START)
-	# ---- 主菜单按钮：hover 展开 + 点击 ----
-	var main_buttons := {
-		"start": $Buttons/StartButton,
-		"continue": $Buttons/ContinueButton,
-		"settings": $Buttons/SettingsButton,
-	}
-	for key in main_buttons:
-		var texs: Array = BTN_TEXTURES[key]
-		_setup_expand_button(main_buttons[key], texs[0], texs[1])
+	# ---- 主菜单按钮：统一的 VFX 悬停/按下效果 ----
 	$Buttons/StartButton.pressed.connect(_on_start_pressed)
 	$Buttons/ContinueButton.pressed.connect(_on_continue_pressed)
 	$Buttons/SettingsButton.pressed.connect(_on_settings_pressed)
@@ -114,6 +90,8 @@ func _notification(what: int) -> void:
 
 # ==================== 主菜单按钮 ====================
 func _on_start_pressed() -> void:
+	if _transitioning:
+		return
 	if GameManager.has_save():
 		_confirm_root.visible = true
 	else:
@@ -121,8 +99,12 @@ func _on_start_pressed() -> void:
 
 
 func _on_continue_pressed() -> void:
+	if _transitioning:
+		return
 	# 读取存档并进入游戏（存档进度在 wolrd._ready 里按 restore_mode 重建）
 	if GameManager.load_game():
+		_transitioning = true
+		await _fade_out()
 		get_tree().change_scene_to_file(WORLD_SCENE)
 	else:
 		# 存档可能已被外部删除：刷新置灰状态
@@ -214,19 +196,23 @@ func _get_parallax_strength(index: int) -> float:
 
 
 func _on_quit_pressed() -> void:
-	if _quitting:
+	if _transitioning:
 		return
-	_quitting = true
+	_transitioning = true
 	GameManager.save_options()
-	# 播放 Shader sweep 后等待片刻，再用 0.2 秒渐黑并退出
+	await _fade_out()
+	get_tree().quit()
+
+
+func _fade_out() -> void:
+	# 播放 Shader sweep 后等待片刻，再用 0.2 秒渐黑
 	_fade_overlay.modulate.a = 0.0
 	_fade_overlay.visible = true
-	await get_tree().create_timer(QUIT_DELAY).timeout
+	await get_tree().create_timer(TRANSITION_DELAY).timeout
 	var tween := create_tween()
-	tween.tween_property(_fade_overlay, "modulate:a", 1.0, QUIT_FADE_TIME) \
+	tween.tween_property(_fade_overlay, "modulate:a", 1.0, TRANSITION_FADE_TIME) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	await tween.finished
-	get_tree().quit()
 
 
 func _close_settings() -> void:
@@ -236,9 +222,13 @@ func _close_settings() -> void:
 
 # ==================== 覆盖存档确认框 ====================
 func _begin_new_game() -> void:
+	if _transitioning:
+		return
+	_transitioning = true
 	# 开始新游戏：删除旧存档并清空进度，避免中途退出后“继续游戏”回到上一局
 	GameManager.delete_save()
 	GameManager.reset_progress()
+	await _fade_out()
 	get_tree().change_scene_to_file(WORLD_SCENE)
 
 
@@ -278,40 +268,6 @@ func _on_fullscreen_toggled(fullscreen: bool) -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 
-# ==================== 按钮贴图交互 ====================
-# 展开式主菜单按钮：热区固定 565×74 右对齐；子节点 Img 显示贴图，
-# normal 短版贴右缘，hover 长版向左展开（offset_left 带缓动）。
-func _setup_expand_button(btn: TextureButton, tex_normal: Texture2D, tex_hover: Texture2D) -> void:
-	var img: TextureRect = btn.get_node("Img")
-	img.texture = tex_normal
-	_apply_right_width(img, int(tex_normal.get_width()))
-	btn.mouse_entered.connect(func() -> void:
-		if btn.disabled:
-			return
-		img.texture = tex_hover
-		_tween_to_left(img, -int(tex_hover.get_width())))
-	btn.mouse_exited.connect(func() -> void:
-		img.texture = tex_normal
-		_tween_to_left(img, -int(tex_normal.get_width())))
-
-
-func _apply_right_width(img: TextureRect, width: int) -> void:
-	img.offset_left = -width
-	img.offset_right = 0
-
-
-func _tween_to_left(img: TextureRect, left: float) -> void:
-	# 先取消上一次展开/收起动画，避免鼠标快速划过时多个 tween 同时改 offset_left 造成抖动
-	if img.has_meta("slide_tween"):
-		var old: Tween = img.get_meta("slide_tween")
-		if old != null and old.is_valid():
-			old.kill()
-	var tween := create_tween()
-	img.set_meta("slide_tween", tween)
-	tween.tween_property(img, "offset_left", left, 0.12) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-
-
 # 确认框小按钮（是/否）：热区固定，子节点 Img 在热区内居中，hover 原尺寸放大
 func _setup_center_button(btn: TextureButton, tex_normal: Texture2D, tex_hover: Texture2D) -> void:
 	var img: TextureRect = btn.get_node("Img")
@@ -338,6 +294,8 @@ func _center_img(img: TextureRect, tex: Texture2D) -> void:
 
 # ==================== 键盘 ====================
 func _input(event: InputEvent) -> void:
+	if _transitioning:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			if _settings_root.visible:
