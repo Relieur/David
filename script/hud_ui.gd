@@ -18,8 +18,16 @@ const DELTA_TIME := 0.9                                      # 浮字存在时�
 const DELTA_DRIFT := 26.0                                    # 浮字向下飘落距离（像素）
 const DELTA_COLOR := Color(0.682353, 0.819608, 0.309804)     # 与资源计数同色 #AED14F
 
+@export_group("Top Bar Telemetry")
+@export var telemetry_min_interval := 8.0
+@export var telemetry_max_interval := 14.0
+@export var telemetry_coordinate_limit := 999
+
 @onready var _settings_root: Control = $SettingsRoot
 @onready var _resources_label: Label = $TopBar/Resources
+@onready var _position_label: Label = $TopBar/posi
+@onready var _height_label: Label = $TopBar/high
+@onready var _ore_scan_overlay = $TopBar/TextureRect3/ScanOverlay
 @onready var _goal_body: Label = $LabGoalPanel/Body
 @onready var _stage_progress: TextureProgressBar = $StageProgress/Fill
 @onready var _gear_button: TextureButton = $GearButton
@@ -36,6 +44,10 @@ var _res_cache: Dictionary = {}    # item_type -> 上次显示的原始数值（
 var _res_centers: Dictionary = {}  # item_type -> 该条目在顶栏行内的中心 x（供「+N」浮字定位）
 var _gear_tween: Tween
 var _ui_hidden: bool = false
+var _telemetry_timer: float = 0.0
+var _telemetry_coordinate := Vector2i.ZERO
+var _telemetry_height := 0
+var _last_copper_count := 0
 
 # ==================== 上方提示框（队列播放，提示之间不互相抵消） ====================
 const SUSTAIN_DURABILITY_THRESHOLD := 0.30   # 耐久低于 30% 触发
@@ -80,8 +92,10 @@ func _ready() -> void:
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	GameManager.ore_deposited.connect(_on_ore_deposited)
+	_last_copper_count = GameManager.get_count("copper")
 	_refresh_resources(GameManager.inventory)
 	_refresh_goal()
+	_seed_telemetry()
 
 	# 收集需要随「隐藏 UI」一起切换的顶层 HUD 元素
 	_hud_elements = [
@@ -121,6 +135,10 @@ func _input(event: InputEvent) -> void:
 var _res_bounce_tween: Tween = null   # 资源数字跳动特效的 tween（数值连续变化时先杀掉旧的）
 
 func _on_inventory_changed(inventory: Dictionary) -> void:
+	var copper_count := int(inventory.get("copper", 0))
+	if copper_count > _last_copper_count:
+		_ore_scan_overlay.play_increase()
+	_last_copper_count = copper_count
 	_refresh_resources(inventory)
 	_refresh_goal()
 
@@ -254,6 +272,9 @@ func _process(delta: float) -> void:
 	# 冷却按帧平滑递减（提示队列的动画由 tween 自己驱动）
 	if _sustain_cooldown > 0.0:
 		_sustain_cooldown -= delta
+	_telemetry_timer -= delta
+	if _telemetry_timer <= 0.0:
+		_update_telemetry()
 	if _ui_hidden:
 		return
 	_poll_timer -= delta
@@ -269,6 +290,55 @@ func _process(delta: float) -> void:
 	if _sustain_cooldown <= 0.0 and _should_show_sustain_hint():
 		_sustain_cooldown = SUSTAIN_COOLDOWN
 		show_hint(SUSTAIN_TEXT)
+
+
+# ==================== 顶栏坐标 / 高度 ====================
+func _seed_telemetry() -> void:
+	_telemetry_coordinate = Vector2i(
+		randi_range(-240, 240),
+		randi_range(-180, 180)
+	)
+	_telemetry_height = randi_range(120, 320)
+	_refresh_telemetry_labels()
+	_reset_telemetry_timer()
+
+
+func _update_telemetry() -> void:
+	_telemetry_coordinate.x = clampi(
+		_telemetry_coordinate.x + randi_range(-140, 140),
+		-telemetry_coordinate_limit,
+		telemetry_coordinate_limit
+	)
+	_telemetry_coordinate.y = clampi(
+		_telemetry_coordinate.y + randi_range(-140, 140),
+		-telemetry_coordinate_limit,
+		telemetry_coordinate_limit
+	)
+	_telemetry_height = clampi(
+		_telemetry_height + randi_range(-45, 45),
+		80,
+		420
+	)
+	_refresh_telemetry_labels()
+	_reset_telemetry_timer()
+
+
+func _refresh_telemetry_labels() -> void:
+	_position_label.text = "%s,%s" % [
+		_signed_int(_telemetry_coordinate.x),
+		_signed_int(_telemetry_coordinate.y),
+	]
+	_height_label.text = "%d" % _telemetry_height
+
+
+func _signed_int(value: int) -> String:
+	return "%s%d" % ["+" if value >= 0 else "-", absi(value)]
+
+
+func _reset_telemetry_timer() -> void:
+	var min_interval := maxf(telemetry_min_interval, 0.1)
+	var max_interval := maxf(telemetry_max_interval, min_interval)
+	_telemetry_timer = randf_range(min_interval, max_interval)
 
 
 # ==================== 研究所目标面板 ====================

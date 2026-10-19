@@ -1,14 +1,18 @@
 [gd_scene format=3 uid="uid://bbkncruibrt5i"]
 
 [ext_resource type="Script" uid="uid://bysbheon13n4u" path="res://script/hud_ui.gd" id="1_hud"]
-[ext_resource type="Texture2D" uid="uid://0llxgrw08xv" path="res://art/UI/UI_HUD_top.png" id="2_hud"]
+[ext_resource type="Texture2D" uid="uid://bpk0e8ok88ntc" path="res://art/newui/bg.png" id="2_4ioc3"]
+[ext_resource type="Texture2D" uid="uid://b30axd5elqt6r" path="res://art/newui/top.png" id="3_4jedl"]
 [ext_resource type="Texture2D" uid="uid://dlsel2oj7mljl" path="res://art/UI/UI_HUD_Gear.png" id="3_hud"]
 [ext_resource type="Texture2D" uid="uid://y5pn2c5osqwe" path="res://art/Ore/icon_ore.png" id="4_7uvwy"]
 [ext_resource type="Texture2D" uid="uid://cjp2bu54vfq5a" path="res://art/UI/UI_HUD_Right.png" id="4_hud"]
-[ext_resource type="Texture2D" uid="uid://sfeuclewgoag" path="res://art/UI/UI_Btn_Lab.png" id="5_hud"]
+[ext_resource type="Texture2D" uid="uid://nlj3bofmdeaq" path="res://art/newui/right-ding.png" id="5_5vksa"]
+[ext_resource type="Texture2D" uid="uid://c5ciub3aet780" path="res://art/newui/right-ore.png" id="6_4ioc3"]
 [ext_resource type="Texture2D" uid="uid://brtu8122h6bbc" path="res://art/UI/UI_RightText_BG.png" id="7_hud"]
 [ext_resource type="Texture2D" uid="uid://dneogqdi8gec0" path="res://art/UI/UI_HUD_ProgressBar_Frame.png" id="8_pb"]
+[ext_resource type="Texture2D" uid="uid://bfp38yh46bemf" path="res://art/newui/lab-normal.png" id="9_0hu65"]
 [ext_resource type="Texture2D" uid="uid://dp4rgbco7itty" path="res://art/UI/UI_HUD_ProgressBar_Fill.png" id="9_pb"]
+[ext_resource type="Texture2D" uid="uid://ddblq2l84bq1r" path="res://art/newui/lab-hover.png" id="10_4v846"]
 [ext_resource type="Texture2D" uid="uid://cr4ke6yy05gyp" path="res://art/UI/UI_Dialogue_BG.png" id="10_dlg"]
 [ext_resource type="Texture2D" uid="uid://dhei5fhtyt57f" path="res://art/SettingsPanel/UI_Bg_Settings.png" id="11_setbg"]
 [ext_resource type="Texture2D" uid="uid://chumhvap2aoou" path="res://art/SettingsPanel/UI_Btn_Close.png" id="12_btnclose"]
@@ -20,6 +24,8 @@
 [ext_resource type="Texture2D" uid="uid://bt8tnaagn4xf" path="res://art/SettingsPanel/UI_Slider_Grabber_Empty.png" id="18_nograb"]
 [ext_resource type="Texture2D" uid="uid://dconyy5btnu4y" path="res://art/SettingsPanel/UI_Check_Checked.png" id="19_chk_on"]
 [ext_resource type="Texture2D" uid="uid://ki0xyek60gdr" path="res://art/SettingsPanel/UI_Check_Unchecked.png" id="20_chk_off"]
+[ext_resource type="PackedScene" path="res://art/newui/globe_hud.tscn" id="21_globe"]
+[ext_resource type="PackedScene" path="res://art/newui/ore_scan_overlay.tscn" id="22_ore_scan"]
 
 [sub_resource type="Gradient" id="Grad_fade"]
 colors = PackedColorArray(0, 0, 0, 0.55, 0, 0, 0, 0)
@@ -30,10 +36,6 @@ width = 1920
 height = 450
 fill_from = Vector2(0.5, 0)
 fill_to = Vector2(0.5, 1)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_labbtn"]
-atlas = ExtResource("5_hud")
-region = Rect2(0, 470, 344, 393)
 
 [sub_resource type="StyleBoxFlat" id="SBF_hideui"]
 bg_color = Color(0.682353, 0.819608, 0.309804, 1)
@@ -93,6 +95,22 @@ mouse_filter = 2
 texture = SubResource("GradTex_fade")
 expand_mode = 1
 
+[node name="TextureRect" type="TextureRect" parent="." unique_id=7127034]
+layout_mode = 0
+offset_left = 1629.0
+offset_top = 749.0
+offset_right = 1879.0
+offset_bottom = 1004.0
+texture = ExtResource("2_4ioc3")
+
+[node name="GlobeHUD" parent="TextureRect" unique_id=563962899 instance=ExtResource("21_globe")]
+layout_mode = 0
+offset_left = 11.0
+offset_top = -2.0
+offset_right = 471.0
+offset_bottom = 458.00006
+scale = Vector2(0.6, 0.6)
+
 [node name="SustainHint" type="TextureRect" parent="." unique_id=135724680]
 visible = false
 layout_mode = 1
@@ -128,10 +146,33 @@ anchor_right = 1.0
 offset_bottom = 96.0
 grow_horizontal = 2
 mouse_filter = 2
-texture = ExtResource("2_hud")
+texture = ExtResource("3_4jedl")
 expand_mode = 1
 
+[node name="posi" type="Label" parent="TopBar" unique_id=1627277827]
+layout_mode = 0
+offset_left = 1350.0
+offset_top = 13.0
+offset_right = 1469.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(0.105882, 0.152941, 0, 1)
+theme_override_font_sizes/font_size = 16
+text = "+0,+0"
+vertical_alignment = 1
+
+[node name="high" type="Label" parent="TopBar" unique_id=199567305]
+layout_mode = 0
+offset_left = 1350.0
+offset_top = 45.0
+offset_right = 1469.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.105882, 0.152941, 0, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"
+vertical_alignment = 1
+
 [node name="Resources" type="Label" parent="TopBar" unique_id=1907827574]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -148,6 +189,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="TextureRect" type="TextureRect" parent="TopBar" unique_id=267562423]
+visible = false
 layout_mode = 0
 offset_left = 768.0
 offset_top = 32.0
@@ -155,16 +197,76 @@ offset_right = 832.0
 offset_bottom = 96.0
 texture = ExtResource("4_7uvwy")
 
+[node name="TextureRect2" type="TextureRect" parent="TopBar" unique_id=953956060]
+layout_mode = 0
+offset_left = 1632.0
+offset_top = 257.0
+offset_right = 1901.0
+offset_bottom = 363.0
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("5_5vksa")
+
+[node name="Label" type="Label" parent="TopBar/TextureRect2" unique_id=2115330179]
+layout_mode = 0
+offset_left = 108.888916
+offset_top = 29.777784
+offset_right = 263.88892
+offset_bottom = 59.777786
+theme_override_colors/font_color = Color(0.20784314, 0.2901961, 0, 1)
+theme_override_font_sizes/font_size = 18
+text = "矿石"
+
+[node name="Label2" type="Label" parent="TopBar/TextureRect2" unique_id=1488986229]
+layout_mode = 0
+offset_left = 111.0
+offset_top = 66.0
+offset_right = 266.0
+offset_bottom = 89.0
+theme_override_colors/font_color = Color(0.8235294, 0.9647059, 0.30588236, 1)
+text = "数量"
+
+[node name="TextureRect3" type="TextureRect" parent="TopBar" unique_id=1182031341]
+layout_mode = 0
+offset_left = 1633.0
+offset_top = 136.0
+offset_right = 1902.0
+offset_bottom = 242.0
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("6_4ioc3")
+
+[node name="ScanOverlay" parent="TopBar/TextureRect3" unique_id=46197687 instance=ExtResource("22_ore_scan")]
+layout_mode = 0
+
+[node name="Label" type="Label" parent="TopBar/TextureRect3" unique_id=373634842]
+layout_mode = 0
+offset_left = 107.888916
+offset_top = 27.777784
+offset_right = 262.88892
+offset_bottom = 57.777786
+theme_override_colors/font_color = Color(0.20784314, 0.2901961, 0, 1)
+theme_override_font_sizes/font_size = 18
+text = "矿石"
+
+[node name="Label2" type="Label" parent="TopBar/TextureRect3" unique_id=2023052777]
+layout_mode = 0
+offset_left = 110.0
+offset_top = 64.0
+offset_right = 265.0
+offset_bottom = 87.0
+theme_override_colors/font_color = Color(0.8235294, 0.9647059, 0.30588236, 1)
+text = "数量"
+
 [node name="RightPanel" type="TextureRect" parent="." unique_id=219158001]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -378.0
-offset_top = 150.0
-offset_right = -35.0
-offset_bottom = 478.0
+offset_left = -288.0
+offset_top = 378.0
+offset_right = 55.0
+offset_bottom = 706.0
 grow_horizontal = 0
+scale = Vector2(0.8, 0.8)
 mouse_filter = 2
 texture = ExtResource("4_hud")
 expand_mode = 1
@@ -174,11 +276,12 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -378.0
-offset_top = 241.0
-offset_right = -71.0
-offset_bottom = 501.0
+offset_left = -288.0
+offset_top = 452.0
+offset_right = 19.0
+offset_bottom = 712.0
 grow_horizontal = 0
+scale = Vector2(0.8, 0.8)
 mouse_filter = 2
 texture = ExtResource("7_hud")
 expand_mode = 1
@@ -187,10 +290,10 @@ expand_mode = 1
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 14.0
-offset_top = -5.0
-offset_right = -20.0
-offset_bottom = 49.0
+offset_left = 13.750061
+offset_top = 3.7500153
+offset_right = -11.999939
+offset_bottom = 37.500015
 grow_horizontal = 2
 theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
 theme_override_font_sizes/font_size = 23
@@ -203,10 +306,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 22.0
-offset_top = 67.0
-offset_right = -21.0
-offset_bottom = -23.0
+offset_left = 17.0
+offset_top = 56.0
+offset_right = -12.0
+offset_bottom = -12.5
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.286275, 0.286275, 0.282353, 1)
@@ -219,11 +322,12 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -390.0
-offset_top = 763.0
-offset_right = -83.0
-offset_bottom = 787.0
+offset_left = -297.0
+offset_top = 868.0
+offset_right = 10.0
+offset_bottom = 892.0
 grow_horizontal = 0
+scale = Vector2(0.8, 0.8)
 mouse_filter = 2
 
 [node name="Fill" type="TextureProgressBar" parent="StageProgress" unique_id=1456821132]
@@ -254,27 +358,29 @@ expand_mode = 1
 
 [node name="LabButton" type="TextureButton" parent="." unique_id=60274726]
 layout_mode = 1
-anchors_preset = 2
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = -423.0
-offset_right = 353.0
-offset_bottom = -30.0
+offset_left = -960.0
+offset_top = -311.0
+offset_right = 960.0
+grow_horizontal = 2
 grow_vertical = 0
-texture_normal = SubResource("AtlasTexture_labbtn")
+texture_normal = ExtResource("9_0hu65")
+texture_hover = ExtResource("10_4v846")
 ignore_texture_size = true
-stretch_mode = 0
 
 [node name="GearButton" type="TextureButton" parent="." unique_id=1011445576]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -88.0
-offset_top = 27.0
-offset_right = -40.0
-offset_bottom = 75.0
+offset_left = -71.0
+offset_top = 35.0
+offset_right = -23.0
+offset_bottom = 83.0
 grow_horizontal = 0
 texture_normal = ExtResource("3_hud")
 ignore_texture_size = true
@@ -287,13 +393,13 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -160.0
-offset_top = -80.0
-offset_right = -40.0
-offset_bottom = -40.0
+offset_left = -149.0
+offset_top = -34.0
+offset_right = -29.0
+offset_bottom = -1.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_colors/font_color = Color(0.05, 0.07, 0.02, 1)
+theme_override_colors/font_color = Color(0.20784314, 0.2901961, 0, 1)
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("SBF_hideui")
 theme_override_styles/pressed = SubResource("SBF_hideui")
@@ -302,6 +408,7 @@ theme_override_styles/focus = SubResource("SBF_hideui")
 text = "隐藏UI"
 
 [node name="KeyGuidePanel" type="Panel" parent="." unique_id=473573785]
+visible = false
 layout_mode = 1
 offset_left = 30.0
 offset_top = 120.0

@@ -1,0 +1,29 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://art/newui/ore_scan_overlay.gd" id="1_script"]
+[ext_resource type="Shader" path="res://art/newui/ore_scan.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ore_scan"]
+shader = ExtResource("2_shader")
+shader_parameter/scan_color = Color(0.78, 1, 0.16, 1)
+shader_parameter/enabled = false
+shader_parameter/auto_play = false
+shader_parameter/progress = 0.0
+shader_parameter/cycle_seconds = 1.6
+shader_parameter/moving_ratio = 0.65
+shader_parameter/overlay_size = Vector2(106, 106)
+shader_parameter/circle_center = Vector2(0.5, 0.5)
+shader_parameter/circle_radius = 0.47
+shader_parameter/band_width = 0.035
+shader_parameter/glow_width = 0.1
+shader_parameter/trail_length = 0.16
+shader_parameter/intensity = 1.0
+
+[node name="ScanOverlay" type="ColorRect"]
+custom_minimum_size = Vector2(106, 106)
+offset_right = 106.0
+offset_bottom = 106.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+material = SubResource("ShaderMaterial_ore_scan")
+script = ExtResource("1_script")

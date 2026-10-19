@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://art/newui/globe_hud.gd" id="1_script"]
+[ext_resource type="Shader" path="res://art/newui/globe_hud.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_globe"]
+shader = ExtResource("2_shader")
+shader_parameter/time_val = 0.0
+shader_parameter/cursor_pos = Vector2(-48, -32)
+shader_parameter/trail = PackedVector3Array()
+shader_parameter/sphere_center = Vector2(190, 230)
+shader_parameter/sphere_radius = 163.0
+shader_parameter/rotation_speed = 0.24
+shader_parameter/latitude_speed = 0.18
+shader_parameter/line_width = 1.9
+shader_parameter/major_width = 2.7
+shader_parameter/back_opacity = 0.1
+shader_parameter/fill_opacity = 0.0
+shader_parameter/tint = Color(1, 1, 1, 1)
+
+[node name="GlobeHUD" type="ColorRect"]
+custom_minimum_size = Vector2(460, 460)
+offset_right = 460.0
+offset_bottom = 460.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+material = SubResource("ShaderMaterial_globe")
+script = ExtResource("1_script")
