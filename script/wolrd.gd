@@ -63,7 +63,7 @@ func _ready() -> void:
 		_apply_restore()
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
 	# [测试] 开局赠送 100000 铜锭，方便测试科技树，后期删除
-	# GameManager.add_item("copper_ingot", 100000)
+	GameManager.add_item("copper_ingot", 100000)
 
 
 # ==================== 存档恢复 / 自动保存 ====================

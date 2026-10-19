@@ -20,6 +20,7 @@
 [ext_resource type="Texture2D" uid="uid://bt8tnaagn4xf" path="res://art/SettingsPanel/UI_Slider_Grabber_Empty.png" id="18_nograb"]
 [ext_resource type="Texture2D" uid="uid://dconyy5btnu4y" path="res://art/SettingsPanel/UI_Check_Checked.png" id="19_chk_on"]
 [ext_resource type="Texture2D" uid="uid://ki0xyek60gdr" path="res://art/SettingsPanel/UI_Check_Unchecked.png" id="20_chk_off"]
+[ext_resource type="Texture2D" uid="uid://npq7ja18qksl" path="res://art/UI/05a220dc41ba43013fe9ccacd3fdf3f1.png" id="21_0hu65"]
 
 [sub_resource type="Gradient" id="Grad_fade"]
 colors = PackedColorArray(0, 0, 0, 0.55, 0, 0, 0, 0)
@@ -37,12 +38,6 @@ region = Rect2(0, 470, 344, 393)
 
 [sub_resource type="StyleBoxFlat" id="SBF_hideui"]
 bg_color = Color(0.682353, 0.819608, 0.309804, 1)
-
-[sub_resource type="Theme" id="Theme_guide"]
-Label/colors/font_outline_color = Color(0.02, 0.03, 0.02, 1)
-Label/constants/outline_size = 5
-
-[sub_resource type="StyleBoxEmpty" id="SBE_guide"]
 
 [sub_resource type="AtlasTexture" id="AT_sfx_icon"]
 atlas = ExtResource("13_labsfx")
@@ -301,265 +296,6 @@ theme_override_styles/hover = SubResource("SBF_hideui")
 theme_override_styles/focus = SubResource("SBF_hideui")
 text = "隐藏UI"
 
-[node name="KeyGuidePanel" type="Panel" parent="." unique_id=473573785]
-layout_mode = 1
-offset_left = 30.0
-offset_top = 120.0
-offset_right = 620.0
-offset_bottom = 660.0
-mouse_filter = 2
-theme = SubResource("Theme_guide")
-theme_override_styles/panel = SubResource("SBE_guide")
-
-[node name="Title" type="Label" parent="KeyGuidePanel" unique_id=1505104596]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 2.0
-offset_top = 8.0
-offset_right = -460.0
-offset_bottom = 44.0
-grow_horizontal = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 24
-text = "按键指南"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Rows" type="VBoxContainer" parent="KeyGuidePanel" unique_id=1192716761]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 54.0
-offset_right = -20.0
-offset_bottom = -14.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 6
-
-[node name="Row1" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=449737970]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row1" unique_id=1099901975]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "W / A / S / D"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row1" unique_id=701442189]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "移动视角"
-autowrap_mode = 3
-
-[node name="Row2" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1952836000]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row2" unique_id=92352176]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "空格"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row2" unique_id=824718936]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "视角回到初始位置"
-autowrap_mode = 3
-
-[node name="Row3" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1975497518]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row3" unique_id=708421268]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标中键拖动"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row3" unique_id=2129334749]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "平移视角"
-autowrap_mode = 3
-
-[node name="Row4" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1025376972]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row4" unique_id=1143898517]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标滚轮"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row4" unique_id=1599741781]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "缩放视角"
-autowrap_mode = 3
-
-[node name="Row5" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1582141041]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row5" unique_id=1576507748]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标左键 · 机器人"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row5" unique_id=306029801]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "选中机器人"
-autowrap_mode = 3
-
-[node name="Row6" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=2105942096]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row6" unique_id=1851039480]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标左键 · 矿石"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row6" unique_id=1159127455]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "长按挖矿"
-autowrap_mode = 3
-
-[node name="Row7" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=2147017419]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row7" unique_id=563862090]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标左键 · 精炼炉"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row7" unique_id=1134673537]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "点击鼓风"
-autowrap_mode = 3
-
-[node name="Row9" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1907082675]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row9" unique_id=1864146348]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "鼠标右键"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row9" unique_id=1620773275]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "取消选中机器人"
-autowrap_mode = 3
-
-[node name="Row10" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=1059861715]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row10" unique_id=2020063668]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "TAB"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row10" unique_id=701821731]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "打开 / 关闭研究所"
-autowrap_mode = 3
-
-[node name="Row11" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=2147017420]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row11" unique_id=2147017421]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "ESC"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row11" unique_id=2147017422]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "打开 / 关闭设置"
-autowrap_mode = 3
-
-[node name="Row12" type="HBoxContainer" parent="KeyGuidePanel/Rows" unique_id=2147017423]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Key" type="Label" parent="KeyGuidePanel/Rows/Row12" unique_id=2147017424]
-custom_minimum_size = Vector2(150, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.682353, 0.819608, 0.309804, 1)
-theme_override_font_sizes/font_size = 20
-text = "R"
-
-[node name="Desc" type="Label" parent="KeyGuidePanel/Rows/Row12" unique_id=2147017425]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.86, 0.89, 0.8, 1)
-theme_override_font_sizes/font_size = 19
-text = "隐藏 / 显示界面"
-autowrap_mode = 3
-
 [node name="SettingsRoot" type="Control" parent="." unique_id=1940249801]
 visible = false
 layout_mode = 1
@@ -814,3 +550,12 @@ theme_override_styles/normal = SubResource("SBF_quitbtn")
 theme_override_styles/pressed = SubResource("SBF_quitbtn")
 theme_override_styles/hover = SubResource("SBF_quitbtn")
 text = "返回菜单"
+
+[node name="KeyGuidePanel" type="TextureRect" parent="." unique_id=1408544010]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 80.0
+offset_right = 407.0
+offset_bottom = 292.0
+texture = ExtResource("21_0hu65")
+expand_mode = 1
