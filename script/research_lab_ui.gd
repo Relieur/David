@@ -18,7 +18,7 @@ const ZOOM_MIN := 0.4
 const ZOOM_MAX := 2.2
 const HOVER_DEBOUNCE := 0.08      # 悬停消失防抖（节点间隙移动不闪烁）
 
-# 科技 → 图标文件名（icon/ 下）。无图标的科技（背包容量）显示「?」占位节点
+# 科技 → 图标文件名（icon/ 下）。未配置图标的科技显示「?」占位节点
 const ICONS := {
 	"memory_auto": "Intel_AutoPathfinding.png",
 	"fallow": "Intel_FallowAwareness.png",
@@ -33,13 +33,18 @@ const ICONS := {
 	"add_furnace": "Resource_AddSmelter.png",
 	"move_speed": "Robot_MoveSpeed.png",
 	"mine_speed": "Robot_GatherSpeed.png",
+	"mine_yield": "Resource_New.png",
+	"mine_crit": "Robot_GatherSpeed.png",
+	"fast_mine": "Robot_GatherSpeed.png",
 	"robot_count": "Robot_PopCap.png",
 	"add_robot": "Robot_RobotCount.png",
-	"backpack_capacity": "",
+	"backpack_capacity": "Intel_PriorityQueue.png",
 	"smelt_speed": "Smelter_CalcinationSpeed.png",
+	"heat_keep": "Smelter_CalcinationSpeed.png",
+	"super_smelter": "Resource_AddSmelter.png",
 	"double_smelt": "Smelter_CreateFromVoid.png",
 	"smelt_crit": "Smelter_CritRate.png",
-	"sync_fan": "",
+	"sync_fan": "Smelter_CalcinationSpeed.png",
 }
 
 # 节点在树视图中的位置（ViewRoot 局部坐标）。
@@ -48,7 +53,7 @@ const ICONS := {
 #   每个方向再沿该方向继续向后生长（前置在前、后置在后）
 const POSITIONS := {
 	"add_robot": Vector2(0, 0),
-	# —— 上：能力升级线 ——（fallow 的四个后置并列同一排）
+	# —— 上：能力升级线 ——（fallow 的后置并列同一排；x=0 留空给 fallow→reproduce 的竖线）
 	"memory_auto": Vector2(0, -300),
 	"fallow": Vector2(0, -600),
 	"priority_sort": Vector2(-270, -900),
@@ -61,8 +66,13 @@ const POSITIONS := {
 	"backpack_capacity": Vector2(-220, 600),
 	"mine_speed": Vector2(0, 600),
 	"robot_count": Vector2(220, 600),
+	"mine_yield": Vector2(0, 900),
+	"mine_crit": Vector2(-220, 900),
+	"fast_mine": Vector2(330, 900),
 	# —— 左：精炼炉升级线 ——
 	"smelt_speed": Vector2(-300, 0),
+	"heat_keep": Vector2(-300, 180),
+	"super_smelter": Vector2(-600, 180),
 	"double_smelt": Vector2(-600, 0),
 	"smelt_crit": Vector2(-900, 0),
 	"sync_fan": Vector2(-1200, 0),
@@ -87,6 +97,17 @@ const RING_MAXED := Color(0.25, 0.62, 1.0, 0.95)   # 满级 / 已解锁（无法
 const RING_UPGRADEABLE := Color(0.45, 0.95, 0.42, 0.95)  # 满足升级条件、可立即升级的绿色光圈
 const RING_NO_RES := Color(0.95, 0.32, 0.28, 0.95)       # 研究所阶段已达标但资源不足的红色光圈
 
+# 底部小 tip：每次打开科技树随机抽一条
+const TIP_PREFIX := "tip："
+const TIPS: PackedStringArray = [
+	"你可以帮机器人挖矿，机器人也可以帮你挖矿",
+	"这个界面也可以拖动哦",
+	"这个时代不止有人类，仿生人甚至是一些星球的主要人口",
+	"地球曾经爆发过激烈的革命，还好它撑住了",
+	"这些tips都是策划写的",
+	"要骂就骂策划",
+]
+
 const TEX_DESC_BG := ART + "UI_TechTree_DescBG.png"
 const TEX_UPGRADE_BTN := ART + "UI_TechTree_UpgradeBtn.png"
 const TEX_CLOSE := ART + "UI_TechTree_Close.png"
@@ -106,7 +127,12 @@ var _desc_btn: TextureButton
 var _desc_btn_glow: Panel          # 升级按钮的悬停高亮边框（纯描边，覆盖在按钮上）
 var _desc_owner: Control = null   # 介绍框当前依附的节点
 
+var _tip_label: Label             # 底部小 tip
+var _tip_last: int = -1           # 上次抽到的 tip 下标（避免连续两次重复）
+
+var _lab_panel: PanelContainer       # 「研究所升级」面板（高度随最终目标行显隐伸缩）
 var _lab_cells: Array = []          # 6 个阶段格（阶段0~5），每格 {style, status, btn}
+var _dome_row: Dictionary = {}      # 最终目标行（巨型氧气罩），结构同阶段格
 
 var _zoom: float = 0.9
 var _pan: Vector2 = Vector2.ZERO
@@ -165,6 +191,7 @@ func _open() -> void:
 	# 不暂停游戏（机器人 / 精炼炉照常运行），仅标记面板打开、屏蔽与游戏世界的交互
 	GameManager.lab_open = true
 	set_process(true)
+	_refresh_tip()
 	_refresh_all()
 
 
@@ -215,6 +242,7 @@ func _build_ui() -> void:
 	_build_desc_panel()
 	_build_lab_panel()
 	_build_close_button()
+	_build_tip_label()
 
 
 func _build_tree() -> void:
@@ -292,9 +320,9 @@ func _build_node(tid: String) -> void:
 
 	# 节点下方等级小字
 	var badge := Label.new()
-	badge.add_theme_font_size_override("font_size", 13)
+	badge.add_theme_font_size_override("font_size", 18)
 	badge.add_theme_color_override("font_color", COLOR_ON_DARK)
-	badge.size = Vector2(NODE_SIZE, 18)
+	badge.size = Vector2(NODE_SIZE, 24)
 	badge.position = pos + Vector2(-NODE_SIZE * 0.5, NODE_SIZE * 0.5 + 2.0)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -386,6 +414,7 @@ func _build_lab_panel() -> void:
 	panel.offset_top = 24
 	panel.offset_right = 236
 	panel.offset_bottom = 484
+	_lab_panel = panel
 	add_child(panel)
 
 	var vbox := VBoxContainer.new()
@@ -400,13 +429,21 @@ func _build_lab_panel() -> void:
 
 	_lab_cells.clear()
 	for stage in range(6):
-		var cell := _build_stage_cell(stage)
+		var cell := _build_lab_cell("阶段 %d" % stage)
+		# 每一格都连同一个升级函数，内部按 GameManager.lab_stage 判断，只有下一阶段格会被启用
+		cell["btn"].pressed.connect(_on_lab_upgrade_pressed)
 		vbox.add_child(cell["root"])
 		_lab_cells.append(cell)
 
+	# 最终目标行：研究所阶段 5 达成后才浮现（见 _refresh_dome_row）
+	_dome_row = _build_lab_cell("巨型氧气罩")
+	_dome_row["btn"].pressed.connect(_on_dome_pressed)
+	_dome_row["root"].visible = false
+	vbox.add_child(_dome_row["root"])
 
-# 单个阶段格：阶段名 + 状态/消耗 + 右侧按钮（已达成 ✓ / 当前 ● / 下一阶段可升级 / 未开启 ×）
-func _build_stage_cell(_stage: int) -> Dictionary:
+
+# 面板里的一格：标题 + 状态/消耗 + 右侧按钮（阶段格与最终目标行共用，按钮回调由调用方连接）
+func _build_lab_cell(title_text: String) -> Dictionary:
 	var cell := PanelContainer.new()
 	cell.custom_minimum_size = Vector2(188, 60)
 	var style := StyleBoxFlat.new()
@@ -426,7 +463,7 @@ func _build_stage_cell(_stage: int) -> Dictionary:
 	hbox.add_child(info)
 
 	var name_label := Label.new()
-	name_label.text = "阶段 %d" % _stage
+	name_label.text = title_text
 	name_label.add_theme_font_size_override("font_size", 15)
 	name_label.add_theme_color_override("font_color", COLOR_ON_DARK)
 	info.add_child(name_label)
@@ -442,8 +479,6 @@ func _build_stage_cell(_stage: int) -> Dictionary:
 	btn.add_theme_font_size_override("font_size", 13)
 	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	btn.disabled = true
-	# 每一格都连同一个升级函数，内部按 GameManager.lab_stage 判断，只有下一阶段格会被启用
-	btn.pressed.connect(_on_lab_upgrade_pressed)
 	hbox.add_child(btn)
 
 	return {"root": cell, "style": style, "status": status, "btn": btn}
@@ -466,6 +501,35 @@ func _build_close_button() -> void:
 	btn.mouse_entered.connect(func() -> void: btn.scale = Vector2(1.1, 1.1))
 	btn.mouse_exited.connect(func() -> void: btn.scale = Vector2.ONE)
 	add_child(btn)
+
+
+# 底部小 tip：贴底、左下角左对齐，纯文字不拦截鼠标（不挡地图拖动）
+func _build_tip_label() -> void:
+	var lbl := Label.new()
+	lbl.add_theme_font_size_override("font_size", 20)
+	lbl.add_theme_color_override("font_color", COLOR_ON_DARK)   # 荧光绿
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.anchor_left = 0.0
+	lbl.anchor_right = 1.0
+	lbl.anchor_top = 1.0
+	lbl.anchor_bottom = 1.0
+	lbl.offset_left = 24.0     # 左边距与「研究所升级」面板对齐
+	lbl.offset_top = -56.0
+	lbl.offset_bottom = -22.0
+	_tip_label = lbl
+	add_child(lbl)
+
+
+# 随机抽一条 tip 显示（同一条不连续出现两次）
+func _refresh_tip() -> void:
+	if TIPS.is_empty():
+		return
+	var idx := randi() % TIPS.size()
+	if TIPS.size() > 1 and idx == _tip_last:
+		idx = (idx + 1) % TIPS.size()
+	_tip_last = idx
+	_tip_label.text = TIP_PREFIX + TIPS[idx]
 
 
 # ==================== 连线 ====================
@@ -496,20 +560,43 @@ func _draw_lines() -> void:
 		# 已解锁的边用亮色，未解锁用暗色（不再用锁图标）
 		var unlocked: bool = GameManager.get_tech_level(tid) >= 1
 		var col := LINE_UNLOCKED if unlocked else LINE_LOCKED
-		_draw_orthogonal_line(POSITIONS[pid], POSITIONS[tid], col)
-		_lines.draw_circle(POSITIONS[tid], 5.0, col)
+		var end := _draw_orthogonal_line(POSITIONS[pid], POSITIONS[tid], col)
+		_lines.draw_circle(end, 5.0, col)
+
+
+# 连线在图标边缘外额外留出的间隙
+const LINE_EDGE_GAP := 6.0
+const LINE_WIDTH := 3.0
+
+# 端头内缩量：图标外接半径 + 间隙，使连线止于图标边缘、不再贯穿图标
+func _line_inset() -> float:
+	return NODE_SIZE * 0.5 + LINE_EDGE_GAP
 
 
 # 画纵横直角折线：父子共线（同 x 或同 y）画直线；否则「先横后竖」的 L 形折线。
 # 先横后竖可让水平段落在父节点所在行（通常只有父一个节点）、垂直段落在子节点所在列，
 # 避免折线横穿同一排的其它节点。
-func _draw_orthogonal_line(from: Vector2, to: Vector2, col: Color) -> void:
-	if is_equal_approx(from.x, to.x) or is_equal_approx(from.y, to.y):
-		_lines.draw_line(from, to, col, 3.0)
-	else:
-		var corner := Vector2(to.x, from.y)
-		_lines.draw_line(from, corner, col, 3.0)
-		_lines.draw_line(corner, to, col, 3.0)
+# 两端各内缩 _line_inset()，让线不进入图标内部；返回靠近子节点的端点（供锚点圆点定位）。
+func _draw_orthogonal_line(from: Vector2, to: Vector2, col: Color) -> Vector2:
+	var r := _line_inset()
+	if is_equal_approx(from.x, to.x):
+		var s := signf(to.y - from.y)
+		var a := from + Vector2(0.0, s * r)
+		var b := to - Vector2(0.0, s * r)
+		_lines.draw_line(a, b, col, LINE_WIDTH)
+		return b
+	if is_equal_approx(from.y, to.y):
+		var s := signf(to.x - from.x)
+		var a := from + Vector2(s * r, 0.0)
+		var b := to - Vector2(s * r, 0.0)
+		_lines.draw_line(a, b, col, LINE_WIDTH)
+		return b
+	var corner := Vector2(to.x, from.y)
+	var a := from + Vector2(signf(corner.x - from.x) * r, 0.0)
+	var b := to - Vector2(0.0, signf(to.y - corner.y) * r)
+	_lines.draw_line(a, corner, col, LINE_WIDTH)
+	_lines.draw_line(corner, b, col, LINE_WIDTH)
+	return b
 
 
 # ==================== 状态刷新 ====================
@@ -644,6 +731,33 @@ func _refresh_lab_panel() -> void:
 			status.text = "未开启"
 			btn.text = "×"
 			btn.disabled = true
+	_refresh_dome_row(stage)
+
+
+# 最终目标行「巨型氧气罩」：研究所阶段 5 达成后浮现，建成后显示 ✓
+func _refresh_dome_row(stage: int) -> void:
+	var root: Control = _dome_row.get("root")
+	if root == null:
+		return
+	root.visible = stage >= 5
+	# 面板高度随该行显隐伸缩（容器不计隐藏子节点的高度），避免内容溢出面板
+	_lab_panel.offset_bottom = 484.0 + (76.0 if root.visible else 0.0)
+	if not root.visible:
+		return
+	var status: Label = _dome_row["status"]
+	var btn: Button = _dome_row["btn"]
+	if GameManager.is_tech_unlocked("giant_dome"):
+		status.text = "已建成"
+		btn.text = "✓"
+		btn.disabled = true
+		return
+	var cost: Dictionary = GameManager.get_tech_cost("giant_dome")
+	var parts: PackedStringArray = []
+	for item_type in cost:
+		parts.append("%d %s" % [int(cost[item_type]), _item_name(String(item_type))])
+	status.text = "消耗：" + "、".join(parts)
+	btn.text = "建造"
+	btn.disabled = not GameManager.can_unlock_tech("giant_dome")
 
 
 func _item_name(item_type: String) -> String:
@@ -707,7 +821,7 @@ func _tech_status_text(tid: String) -> String:
 	var lines: PackedStringArray = []
 	lines.append(String(tech.get("desc", "")))
 	if GameManager.is_tech_unlocked(tid):
-		lines.append("✔ 已研究完成")
+		lines.append("已研究完成")
 		return "\n".join(lines)
 	for pre in tech.get("prereq", []):
 		if GameManager.get_tech_level(String(pre)) < 1:
@@ -743,7 +857,24 @@ func _on_tech_upgrade_pressed() -> void:
 
 
 func _on_lab_upgrade_pressed() -> void:
-	if GameManager.upgrade_lab():
+	if not GameManager.upgrade_lab():
+		return
+	_refresh_all()
+	# 阶段 5 达成：「巨型氧气罩」最终目标浮现 → 强制退出科技树，并在主界面上方播放终局提示
+	if GameManager.lab_stage >= 5:
+		_play_final_goal_intro()
+
+
+# 关闭科技树 + 用主界面上方的剧情提示框（与开局教程同一个提示框）播放终局文案
+func _play_final_goal_intro() -> void:
+	var intro: Node = get_parent().find_child("IntroDialogue", true, false)
+	if intro != null and intro.has_method("play_final_goal"):
+		intro.call("play_final_goal")
+
+
+# 建造巨型氧气罩（消耗 20000 铜锭，一次性）
+func _on_dome_pressed() -> void:
+	if GameManager.unlock_tech("giant_dome"):
 		_refresh_all()
 
 

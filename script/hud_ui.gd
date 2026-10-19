@@ -10,6 +10,13 @@ const START_SCENE := "res://scene/start.tscn"
 const ITEM_NAMES := {"copper": "铜矿", "copper_ingot": "铜锭"}
 const FIXED_ORDER := ["copper_ingot", "copper"]
 const NAME_OVERRIDES := {"copper": "铜矿"}
+const SEPARATOR := " | "
+
+# 顶栏计数增加时在对应计数下方浮现的「+N」字样
+const DELTA_FONT_SIZE := 22                                  # 浮字字号
+const DELTA_TIME := 0.9                                      # 浮字存在时长（秒）
+const DELTA_DRIFT := 26.0                                    # 浮字向下飘落距离（像素）
+const DELTA_COLOR := Color(0.682353, 0.819608, 0.309804)     # 与资源计数同色 #AED14F
 
 @onready var _settings_root: Control = $SettingsRoot
 @onready var _resources_label: Label = $TopBar/Resources
@@ -17,7 +24,7 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 @onready var _stage_progress: TextureProgressBar = $StageProgress/Fill
 @onready var _gear_button: TextureButton = $GearButton
 @onready var _hide_ui_button: Button = $HideUIButton
-@onready var _key_guide_button: Button = $KeyGuideButton
+@onready var _key_guide_panel: Control = $KeyGuidePanel
 @onready var _sustain_hint: TextureRect = $SustainHint
 @onready var _sustain_hint_label: Label = $SustainHint/Label
 @onready var _sfx_slider: HSlider = $SettingsRoot/BG/SfxSlider
@@ -25,28 +32,10 @@ const NAME_OVERRIDES := {"copper": "铜矿"}
 @onready var _music_slider: HSlider = $SettingsRoot/BG/MusicSlider
 @onready var _fullscreen_check: CheckBox = $SettingsRoot/BG/FullscreenCheck
 
-var _res_cache: Dictionary = {}    # item_type -> 上次显示的数值
+var _res_cache: Dictionary = {}    # item_type -> 上次显示的原始数值（含小数）
+var _res_centers: Dictionary = {}  # item_type -> 该条目在顶栏行内的中心 x（供「+N」浮字定位）
 var _gear_tween: Tween
 var _ui_hidden: bool = false
-
-# ==================== 按键指南 ====================
-const KEY_GUIDE_ROWS := [
-	["W / A / S / D", "移动镜头"],
-	["空格", "镜头回到初始位置"],
-	["鼠标中键拖动", "平移地图"],
-	["鼠标滚轮", "缩放地图"],
-	["鼠标左键 · 机器人", "选中机器人"],
-	["鼠标左键 · 矿点", "已选中机器人时派它去挖矿；未选中时手动挖一块"],
-	["鼠标左键 · 精炼炉", "已选中机器人时派它去该炉卸货；未选中时鼓风加温"],
-	["鼠标左键 · 掉落物", "让掉落物自动飞回精炼炉"],
-	["鼠标右键", "取消选中机器人"],
-	["TAB", "打开 / 关闭研究所"],
-	["ESC", "打开 / 关闭设置（研究所打开时先关闭研究所）"],
-	["R", "隐藏 / 显示界面"],
-]
-const KEY_GUIDE_COLOR := Color(0.682353, 0.819608, 0.309804)      # 荧光绿：按键名
-const KEY_GUIDE_TEXT_COLOR := Color(0.86, 0.89, 0.80)            # 浅色：说明文字
-var _key_guide_root: Control = null
 
 # ==================== 上方提示框（队列播放，提示之间不互相抵消） ====================
 const SUSTAIN_DURABILITY_THRESHOLD := 0.30   # 耐久低于 30% 触发
@@ -73,8 +62,6 @@ func _ready() -> void:
 	$SettingsRoot/BG/QuitButton.pressed.connect(_on_quit_pressed)
 	$SettingsRoot/BG/QuitButton2.pressed.connect(_on_menu_pressed)
 	$HideUIButton.pressed.connect(_toggle_hide_ui)
-	$KeyGuideButton.pressed.connect(_toggle_key_guide)
-	_build_key_guide()
 	# 音量滑块：实时生效 + 填充条跟随
 	for slider: HSlider in [_sfx_slider, _master_slider, _music_slider]:
 		slider.value_changed.connect(func(v: float) -> void: _update_fill(slider, v))
@@ -92,6 +79,7 @@ func _ready() -> void:
 	_settings_root.visible = false
 	GameManager.inventory_changed.connect(_on_inventory_changed)
 	GameManager.tech_unlocked.connect(_on_tech_unlocked)
+	GameManager.ore_deposited.connect(_on_ore_deposited)
 	_refresh_resources(GameManager.inventory)
 	_refresh_goal()
 
@@ -104,7 +92,7 @@ func _ready() -> void:
 		$StageProgress,
 		$LabButton,
 		$GearButton,
-		$KeyGuideButton,
+		_key_guide_panel,
 	]
 
 
@@ -121,11 +109,6 @@ func _input(event: InputEvent) -> void:
 			var lab := get_node_or_null("../ResearchLabUI")
 			if lab != null and lab.visible:
 				return
-			# 按键指南打开时优先关闭它
-			if _key_guide_root != null and _key_guide_root.visible:
-				_close_key_guide()
-				get_viewport().set_input_as_handled()
-				return
 			# ESC：设置面板已开则关闭，否则打开
 			if _settings_root.visible:
 				_close_settings()
@@ -135,6 +118,8 @@ func _input(event: InputEvent) -> void:
 
 
 # ==================== 顶栏资源显示 ====================
+var _res_bounce_tween: Tween = null   # 资源数字跳动特效的 tween（数值连续变化时先杀掉旧的）
+
 func _on_inventory_changed(inventory: Dictionary) -> void:
 	_refresh_resources(inventory)
 	_refresh_goal()
@@ -153,25 +138,111 @@ func _refresh_resources(inventory: Dictionary) -> void:
 		if not order.has(item_type):
 			order.append(item_type)
 
-	# 单行显示，用 " | " 分隔（无空隙）
-	var parts: PackedStringArray = []
+	# 整行居中排布：先量出各条目文本宽度，算出每条在标签内的中心 x，
+	# 好让「+N」浮字对齐到对应计数的正下方
+	var font: Font = _resources_label.get_theme_font("font")
+	var fs: int = _resources_label.get_theme_font_size("font_size")
+	var sep_w: float = font.get_string_size(SEPARATOR, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var texts: PackedStringArray = []
+	var widths: Array[float] = []
+	var total_w := 0.0
 	for item_type in order:
-		var amount := _get_amount(item_type)
-		_res_cache[item_type] = amount
-		parts.append("%s x %d" % [_get_display_name(item_type), amount])
-	_resources_label.text = " | ".join(parts)
+		var seg := _seg_text(item_type)
+		texts.append(seg)
+		var w: float = font.get_string_size(seg, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		widths.append(w)
+		total_w += w
+	total_w += sep_w * float(maxi(0, order.size() - 1))
+	var cursor: float = _resources_label.position.x + _resources_label.size.x * 0.5 - total_w * 0.5
+
+	for i in range(order.size()):
+		var item_type: String = String(order[i])
+		var center_x: float = cursor + widths[i] * 0.5
+		_res_centers[item_type] = center_x
+		_set_amount(item_type, _get_amount(item_type), center_x)
+		cursor += widths[i] + sep_w
+	var new_text := SEPARATOR.join(texts)
+	if new_text != _resources_label.text:
+		_resources_label.text = new_text
+		_play_res_bounce()
 
 
-func _get_amount(item_type: String) -> int:
+# 顶栏数字变化时的跳动特效：先快速放大，再用弹性缓动回弹到原尺寸
+func _play_res_bounce() -> void:
+	# 以标签中心为缩放轴心，避免跳动时整体位移
+	_resources_label.pivot_offset = _resources_label.size * 0.5
+	if _res_bounce_tween != null and _res_bounce_tween.is_valid():
+		_res_bounce_tween.kill()
+	_resources_label.scale = Vector2.ONE
+	_res_bounce_tween = create_tween()
+	# 峰值由 1.18 降到 1.08：回弹振幅同比减半，跳动更收敛、不再显得抖
+	_res_bounce_tween.tween_property(_resources_label, "scale", Vector2(1.08, 1.08), 0.08) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_res_bounce_tween.tween_property(_resources_label, "scale", Vector2.ONE, 0.28) \
+		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+func _get_amount(item_type: String) -> float:
 	if item_type == "copper":
 		return GameManager.get_furnace_ore_total()
-	return GameManager.get_count(item_type)
+	return float(GameManager.get_count(item_type))
 
 
 func _get_display_name(item_type: String) -> String:
 	if NAME_OVERRIDES.has(item_type):
 		return NAME_OVERRIDES[item_type]
 	return ITEM_NAMES.get(item_type, item_type)
+
+
+# 单个条目的显示文本（名称 x 数量）：顶栏数量向下取整显示，小数不展示
+func _seg_text(item_type: String) -> String:
+	return "%s x %d" % [_get_display_name(item_type), int(floor(_get_amount(item_type)))]
+
+
+# 更新某条目的计数缓存（存原始数值，含小数）
+# 铜矿不在这里弹浮字：炉内铜矿是边进边出的缓冲区，轮询差值会把「投放」和「烧制消耗」混成净增量，
+# 所以铜矿浮字改由入炉事件 _on_ore_deposited 触发（只报本次投放量）
+func _set_amount(item_type: String, amount: float, center_x: float) -> void:
+	var prev: float = float(_res_cache.get(item_type, -1.0))
+	_res_cache[item_type] = amount
+	if prev >= 0.0 and amount > prev + 0.0001 and item_type == "copper_ingot":
+		_spawn_delta_popup(amount - prev, center_x)
+
+
+# 有矿物投入精炼炉（机器人卸货 / 玩家挖的矿飞入）：按本次投放量弹浮字
+func _on_ore_deposited(amount: float) -> void:
+	if amount <= 0.0001 or not _res_centers.has("copper"):
+		return
+	_spawn_delta_popup(amount, float(_res_centers["copper"]))
+
+
+# 「+N」跳数文本：增量恰好是整数时不带小数位，只要带小数就保留一位（如 +1.3、+3.4）
+# 判定用 is_equal_approx（只放过浮点误差级的尘埃），避免真实小数增量被当成整数吞掉
+func _format_delta(delta: float) -> String:
+	if is_equal_approx(delta, round(delta)):
+		return "+%d" % int(round(delta))
+	return "+%.1f" % delta
+
+
+# 在顶栏对应计数下方冒出「+N」浮字：向下飘落并淡出，播完自毁
+func _spawn_delta_popup(delta: float, center_x: float) -> void:
+	var lbl := Label.new()
+	lbl.text = _format_delta(delta)
+	lbl.add_theme_font_size_override("font_size", DELTA_FONT_SIZE)
+	lbl.add_theme_color_override("font_color", DELTA_COLOR)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.z_index = 40
+	var font: Font = _resources_label.get_theme_font("font")
+	var w: float = font.get_string_size(lbl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, DELTA_FONT_SIZE).x
+	var start_y: float = _resources_label.position.y + _resources_label.size.y - 6.0
+	lbl.position = Vector2(center_x - w * 0.5, start_y)
+	$TopBar.add_child(lbl)
+	var tw := create_tween()
+	tw.tween_property(lbl, "position:y", start_y + DELTA_DRIFT, DELTA_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(lbl, "modulate:a", 0.0, DELTA_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(lbl.queue_free)
 
 
 # 炉内铜矿没有变化信号，靠低频轮询；0.25 秒一次足够显示，避免每帧扫分组
@@ -189,16 +260,11 @@ func _process(delta: float) -> void:
 	if _poll_timer > 0.0:
 		return
 	_poll_timer = POLL_INTERVAL
-	# 炉内铜矿没有变化信号，靠轮询；数值没变就不重写 text
-	var changed := false
+	# 炉内铜矿没有变化信号，靠轮询；数值有变就整体刷新（刷新时按缓存差值冒「+N」浮字）
 	for item_type in _res_cache:
-		var amount := _get_amount(item_type)
-		if _res_cache.get(item_type, -1) == amount:
-			continue
-		_res_cache[item_type] = amount
-		changed = true
-	if changed:
-		_refresh_resources(GameManager.inventory)
+		if absf(float(_res_cache.get(item_type, 0.0)) - _get_amount(String(item_type))) > 0.0001:
+			_refresh_resources(GameManager.inventory)
+			break
 	# 可持续提示：冷却结束且满足条件时触发一次
 	if _sustain_cooldown <= 0.0 and _should_show_sustain_hint():
 		_sustain_cooldown = SUSTAIN_COOLDOWN
@@ -312,128 +378,9 @@ func _format_cost(cost: Dictionary) -> String:
 	return "、".join(parts)
 
 
-# ==================== 按键指南 ====================
-func _toggle_key_guide() -> void:
-	if _key_guide_root == null:
-		return
-	_key_guide_root.visible = not _key_guide_root.visible
-	if _key_guide_root.visible:
-		_settings_root.visible = false
-
-
-func _close_key_guide() -> void:
-	if _key_guide_root != null:
-		_key_guide_root.visible = false
-
-
-# 构建按键指南弹窗（按键列表改 KEY_GUIDE_ROWS 即可）
-func _build_key_guide() -> void:
-	_key_guide_root = Control.new()
-	_key_guide_root.visible = false
-	_key_guide_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_key_guide_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_key_guide_root)
-
-	# 半透明遮罩：拦截背后点击，点击遮罩也可关闭
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(_on_key_guide_dim_input)
-	_key_guide_root.add_child(dim)
-
-	# 居中面板
-	var panel := Panel.new()
-	panel.anchor_left = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -500.0
-	panel.offset_top = -330.0
-	panel.offset_right = 500.0
-	panel.offset_bottom = 330.0
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.06, 0.03, 0.95)
-	style.border_color = Color(KEY_GUIDE_COLOR, 0.9)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	panel.add_theme_stylebox_override("panel", style)
-	_key_guide_root.add_child(panel)
-
-	var title := Label.new()
-	title.text = "按键指南"
-	title.anchor_right = 1.0
-	title.offset_top = 18.0
-	title.offset_bottom = 62.0
-	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", KEY_GUIDE_COLOR)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(title)
-
-	# 关闭按钮
-	var close_btn := TextureButton.new()
-	close_btn.texture_normal = load("res://art/SettingsPanel/UI_Btn_Close.png")
-	close_btn.ignore_texture_size = true
-	close_btn.stretch_mode = TextureButton.STRETCH_SCALE
-	close_btn.anchor_left = 1.0
-	close_btn.anchor_right = 1.0
-	close_btn.offset_left = -60.0
-	close_btn.offset_top = 14.0
-	close_btn.offset_right = -20.0
-	close_btn.offset_bottom = 54.0
-	close_btn.pressed.connect(_close_key_guide)
-	panel.add_child(close_btn)
-
-	# 按键行
-	var rows := VBoxContainer.new()
-	rows.anchor_right = 1.0
-	rows.anchor_bottom = 1.0
-	rows.offset_left = 46.0
-	rows.offset_top = 84.0
-	rows.offset_right = -46.0
-	rows.offset_bottom = -28.0
-	rows.add_theme_constant_override("separation", 10)
-	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(rows)
-
-	for row_data in KEY_GUIDE_ROWS:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 24)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-		var key_label := Label.new()
-		key_label.text = String(row_data[0])
-		key_label.custom_minimum_size = Vector2(250.0, 0.0)
-		key_label.add_theme_font_size_override("font_size", 22)
-		key_label.add_theme_color_override("font_color", KEY_GUIDE_COLOR)
-		key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(key_label)
-
-		var desc := Label.new()
-		desc.text = String(row_data[1])
-		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		desc.add_theme_font_size_override("font_size", 21)
-		desc.add_theme_color_override("font_color", KEY_GUIDE_TEXT_COLOR)
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(desc)
-
-		rows.add_child(row)
-
-
-func _on_key_guide_dim_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_close_key_guide()
-		get_viewport().set_input_as_handled()
-
-
 # ==================== 设置面板 ====================
 func _toggle_settings() -> void:
 	_settings_root.visible = not _settings_root.visible
-	if _settings_root.visible:
-		_close_key_guide()
 
 
 func _on_sfx_volume_changed(value: float) -> void:
@@ -467,10 +414,9 @@ func _toggle_hide_ui() -> void:
 	_ui_hidden = not _ui_hidden
 	for el in _hud_elements:
 		el.visible = not _ui_hidden
-	# 隐藏时同时收起设置 / 按键指南面板，避免残留半透明遮罩
+	# 隐藏时同时收起设置面板，避免残留半透明遮罩
 	if _ui_hidden:
 		_settings_root.visible = false
-		_close_key_guide()
 		_hide_ui_button.text = "显示UI"
 	else:
 		_hide_ui_button.text = "隐藏UI"

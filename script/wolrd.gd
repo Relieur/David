@@ -48,15 +48,16 @@ func _ready() -> void:
 	# 精炼炉：位置完全按场景里手动摆放的位置来（不再自动居中 / 自动散布），
 	# 开局只启用名字顺序里的第一个，其余靠「扩建精炼炉」科技逐级出现
 	_collect_placed_furnaces()
-	_setup_camera()
-	# 机器人按 y 坐标自动排序（下方遮盖上方），替代手动每帧改 z_index，减少重排开销
-	robot_container.y_sort_enabled = true
-	_spawn_robots()
 	_collect_placed_patches()
 	# 初始只显示 1 个矿点，其余通过 unlock_more_ores 科技升级解锁（每次升级 reveal 3 个）
 	if _placed_patches.size() > 0:
 		_set_patch_active(_placed_patches[0], true)
 		_reveal_index = 1
+	# 相机取景放在矿点启用之后：好让主炉与首个矿点同时落进画面中央
+	_setup_camera()
+	# 机器人按 y 坐标自动排序（下方遮盖上方），替代手动每帧改 z_index，减少重排开销
+	robot_container.y_sort_enabled = true
+	_spawn_robots()
 	# 继续游戏：按存档恢复矿点显示数量 / 炉子启用数量 / 机器人数量
 	if GameManager.restore_mode:
 		_apply_restore()
@@ -94,13 +95,13 @@ func _apply_restore() -> void:
 	for st in GameManager.get_restore_furnaces():
 		var f := robot_container.get_node_or_null(NodePath(String(st.get("name", ""))))
 		if f is RefiningFurnace:
-			f.restore_state(int(st.get("ore", 0)), float(st.get("heat", RefiningFurnace.HEAT_MAX)), float(st.get("smelt", 0.0)))
+			f.restore_state(float(st.get("ore", 0)), float(st.get("heat", RefiningFurnace.HEAT_MAX)), float(st.get("smelt", 0.0)))
 	# 地上未回收的掉落物：按存档位置重新生成
 	for d in GameManager.get_restore_drops():
 		var drop := DROPPED_ITEM_SCENE.instantiate() as DroppedItem
 		drop.global_position = d.get("pos", Vector2.ZERO)
 		drop.item_type = String(d.get("type", "copper"))
-		drop.amount = int(d.get("amount", 1))
+		drop.amount = float(d.get("amount", 1))
 		drop_container.add_child(drop)
 	# 机器人：新版存档按每条记录恢复位置 / 背包 / 记忆
 	var robot_states: Array = GameManager.get_restore_robots()
@@ -111,7 +112,7 @@ func _apply_restore() -> void:
 			var robot := _spawn_robot(st.get("pos", Vector2.INF))
 			if robot == null:
 				break
-			robot.set_carry_count(int(st.get("carry", 0)))
+			robot.set_carry_count(float(st.get("carry", 0)))
 			robot.inherit_patches(_resolve_patch_names(st.get("memory", [])))
 	else:
 		# 旧版存档：只按生成顺序恢复数量 + 记忆
@@ -349,13 +350,39 @@ func _scatter_decorations() -> void:
 
 
 # ==================== 摄像机 ====================
+const INTRO_FRAME_PADDING := 260.0   # 开局取景时两点四周留出的世界像素余量
+const INTRO_ZOOM_MAX := 2.0          # 开局取景的最大缩放（沿用旧默认，不会比原来更大）
+
 func _setup_camera() -> void:
-	camera_2d.set_target(furnace.global_position)
-	camera_2d.zoom = Vector2(2.0, 2.0)
 	camera_2d.map_size_px = Vector2(MAP_SIZE) * TILE_SIZE
 	camera_2d.viewport_size = get_viewport_rect().size
 	camera_2d.recompute_zoom_min()
 	camera_2d.make_current()
+	# 开局把镜头对准「主炉 + 首个矿点」的中点，并缩放到两者都能进画面，
+	# 让矿点与精炼炉一开始就同时出现在画面中央（SPACE 回位也回到这个取景）
+	var focus := furnace.global_position
+	var zoom_value := INTRO_ZOOM_MAX
+	if _placed_patches.size() > 0:
+		var patch_pos := _get_focus_pos(_placed_patches[0])
+		focus = (furnace.global_position + patch_pos) * 0.5
+		zoom_value = minf(INTRO_ZOOM_MAX, _fit_zoom(furnace.global_position, patch_pos, camera_2d.viewport_size))
+	zoom_value = clampf(zoom_value, camera_2d.zoom_min, INTRO_ZOOM_MAX)
+	camera_2d.zoom = Vector2(zoom_value, zoom_value)
+	camera_2d.set_target(focus)
+
+
+# 取景参考点：优先用矿区中心，退化到节点自身坐标
+func _get_focus_pos(node: Node) -> Vector2:
+	if node.has_method("get_center"):
+		return node.get_center()
+	var n2d := node as Node2D
+	return n2d.global_position if n2d != null else Vector2.ZERO
+
+
+# 让 a、b 两点连同四周留白一起进画面所需的最大缩放
+func _fit_zoom(a: Vector2, b: Vector2, view: Vector2) -> float:
+	var span := (b - a).abs() + Vector2(INTRO_FRAME_PADDING, INTRO_FRAME_PADDING) * 2.0
+	return minf(view.x / maxf(span.x, 1.0), view.y / maxf(span.y, 1.0))
 
 
 # ==================== 收集并隐藏场景里预放置的矿点 ====================
@@ -440,6 +467,7 @@ func _set_patch_active(node: Node, active: bool) -> void:
 
 
 # ==================== 矿物掉落回调 ====================
+# 玩家手动挖矿产出的掉落物：生成后立即自动飞向最近的精炼炉
 func _on_mineral_dropped(world_pos: Vector2) -> void:
 	var drop := DROPPED_ITEM_SCENE.instantiate()
 	var angle := randf() * TAU
@@ -447,6 +475,8 @@ func _on_mineral_dropped(world_pos: Vector2) -> void:
 	var offset := Vector2(cos(angle), sin(angle)) * radius
 	drop.global_position = world_pos + offset
 	drop.item_type = "copper"
-	drop.amount = 1
+	drop.amount = GameManager.consume_player_mine_drop()
 	drop_container.add_child(drop)
-	print("掉落矿物 x1")
+	# 周围没有可用炉子时会自动留在原地，等玩家点击回收
+	drop.fly_to_furnace()
+	print("掉落矿物 x%.1f" % drop.amount)

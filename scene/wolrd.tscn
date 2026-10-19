@@ -64,10 +64,10 @@ z_index = 1
 position = Vector2(4320, 1568)
 
 [node name="Furnace2" parent="RobotContainer" unique_id=218107102 instance=ExtResource("4_bs68n")]
-position = Vector2(6240, 3104)
+position = Vector2(4320, 3168)
 
 [node name="Furnace3" parent="RobotContainer" unique_id=1407262210 instance=ExtResource("4_bs68n")]
-position = Vector2(4384, 3168)
+position = Vector2(6240, 3168)
 
 [node name="Furnace4" parent="RobotContainer" unique_id=800427134 instance=ExtResource("4_bs68n")]
 position = Vector2(2144, 3168)
@@ -128,6 +128,12 @@ theme_override_font_sizes/font_size = 28
 text = "让我看看档案......"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="OrePatch" parent="UILayer" unique_id=1414043897 instance=ExtResource("13_pqfde")]
+position = Vector2(6560, 1888)
+
+[node name="OrePatch2" parent="UILayer" unique_id=31899625 instance=ExtResource("11_cglsi")]
+position = Vector2(6560, 992)
 
 [node name="PlayerCursor" parent="." unique_id=154724218 instance=ExtResource("15_pc")]
 

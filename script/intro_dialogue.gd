@@ -16,7 +16,7 @@ const INTRO_LINES: PackedStringArray = [
 	"你需要亲自去挖那些矿（鼠标连续点击）",
 	"并投进炉子里（点击掉落物）",
 	"先收集五个矿吧",
-	"不明白可以点击左上角按钮查看按键指南",
+	"不明白可以看左侧的按键指南",
 ]
 
 ## 烧出 5 个铜锭后播放的引导
@@ -25,9 +25,18 @@ const FIVE_INGOT_LINES: PackedStringArray = [
 	"剩下的就由你自己探索吧",
 ]
 
-## 仅有一个精炼炉且炉温降到 0 时播放的引导
+## 仅有一个精炼炉且炉温跌破低炉温阈值（与炉体绿圈同时）时播放的引导
 const HEAT_EMPTY_LINES: PackedStringArray = [
-	"精炼炉温度降到0效率会下降，记得鼓风（点击精炼炉）",
+	"精炼炉温度过低会降低烧制效率，记得鼓风（点击精炼炉）",
+]
+
+## 研究所阶段 5 达成、最终目标「巨型氧气罩」浮现时播放的终局引导
+const FINAL_GOAL_LINES: PackedStringArray = [
+	"现在是时候冲刺最后的目标了",
+	"氧气罩建立起来以后，人类就可以在这颗星球上迈出繁衍生息的第一步",
+	"这意味着我们将多一个家园",
+	"这里会诞生全新的历史和文化",
+	"而这一切都起源于你",
 ]
 
 const FIVE_INGOT_THRESHOLD := 5   # 铜锭达到该数量时触发第二次引导
@@ -45,8 +54,8 @@ var _pending: Array = []            # 待播队列：当前提示框播放期间
 # 状态：开场剧情是否已播放完；五锭引导是否已触发
 var _intro_done: bool = false
 var _five_ingot_triggered: bool = false
-var _heat_empty_triggered: bool = false   # 炉温归零引导是否已触发（仅一次）
-var _heat_empty_pending: bool = false      # 开场剧情期间触发过炉温归零，等剧情结束后补播
+var _heat_low_triggered: bool = false     # 低炉温引导是否已触发（仅一次）
+var _heat_low_pending: bool = false       # 开场剧情期间触发过低炉温，等剧情结束后补播
 
 
 func _ready() -> void:
@@ -55,12 +64,12 @@ func _ready() -> void:
 	visible = false
 	modulate.a = 0.0
 	GameManager.inventory_changed.connect(_on_inventory_changed)
-	GameManager.furnace_heat_empty.connect(_on_furnace_heat_empty)
+	GameManager.furnace_heat_low.connect(_on_furnace_heat_low)
 	# 继续游戏（读档）：跳过开场剧情与新手引导（老玩家已看过）
 	if GameManager.restore_mode:
 		_intro_done = true
 		_five_ingot_triggered = true
-		_heat_empty_triggered = true
+		_heat_low_triggered = true
 		return
 	# 开场剧情延迟 INTRO_DELAY 秒后出现（等待主界面/相机就绪）
 	await get_tree().create_timer(INTRO_DELAY).timeout
@@ -78,6 +87,11 @@ func play(lines: PackedStringArray) -> void:
 		_pending.append(lines)
 		return
 	_start(lines)
+
+
+# ==================== 对外：播放终局引导（研究所阶段 5 达成、巨型氧气罩浮现） ====================
+func play_final_goal() -> void:
+	play(FINAL_GOAL_LINES)
 
 
 func _start(lines: PackedStringArray) -> void:
@@ -106,18 +120,18 @@ func _check_five_ingot() -> void:
 		play(FIVE_INGOT_LINES)
 
 
-# ==================== 炉温归零监听：仅一个精炼炉且温度降到 0 触发引导 ====================
-func _on_furnace_heat_empty(_furnace: Node) -> void:
-	if _heat_empty_triggered:
+# ==================== 低炉温监听：仅一个精炼炉且炉温跌破阈值（绿圈出现）时触发引导 ====================
+func _on_furnace_heat_low(_furnace: Node) -> void:
+	if _heat_low_triggered:
 		return
 	# 仅有一个精炼炉（group "furnace" 只含启用中的炉子）时才提示
 	if get_tree().get_nodes_in_group("furnace").size() != 1:
 		return
 	# 开场剧情期间触发：先记下来，等剧情结束再补播（信号只发一次，不能直接丢弃）
 	if not _intro_done:
-		_heat_empty_pending = true
+		_heat_low_pending = true
 		return
-	_heat_empty_triggered = true
+	_heat_low_triggered = true
 	play(HEAT_EMPTY_LINES)
 
 
@@ -177,10 +191,10 @@ func _on_fade_out_finished() -> void:
 		return
 	# 队列空：补一次五锭检查（覆盖「开场期间就烧够 5 个」的漏触发）
 	_check_five_ingot()
-	# 开场期间炉温归零过：补播对应引导
-	if _heat_empty_pending and not _heat_empty_triggered:
-		_heat_empty_pending = false
-		_heat_empty_triggered = true
+	# 开场期间出现过低炉温：补播对应引导
+	if _heat_low_pending and not _heat_low_triggered:
+		_heat_low_pending = false
+		_heat_low_triggered = true
 		play(HEAT_EMPTY_LINES)
 
 

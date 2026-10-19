@@ -22,22 +22,27 @@ const MINE_ITEM_FLY_TIME := 0.35                # 飞入机器人耗时
 @onready var anim: AnimatedSprite2D = $AnimatedSprite2D
 
 # ==================== 内部状态 ====================
-enum State { IDLE, MOVING, MINING, RETURNING, DEPOSITING }
+enum State { IDLE, MOVING, MINING, RETURNING, DEPOSITING, FETCHING }
 var _state: State = State.IDLE
 
 var _target_ore: Node2D = null               # 当前要挖的矿
 var _furnace: RefiningFurnace = null         # 精炼炉引用
 
 var _is_selected: bool = false
-var _carry_count: int = 0
+var _carry_count: float = 0.0
 var _command_token: int = 0                  # 每次指派新目标 +1，用于打断旧采矿循环
 var _original_modulate: Color = Color.WHITE
 var known_patches: Array = []                # 记忆的矿区（OrePatch 节点引用，而非单个矿点格子）
+var _last_patch: Node = null                 # 最近一次去过的矿区：自动寻路时率先回到这里
 var _swap_cooldown_until: int = 0            # 资源交换冷却时间戳（毫秒），防止来回倒腾
 var _mining_session: int = 0                 # 采矿会话号：用于矿格占用的令牌校验
 var _claimed_ore: Node2D = null              # 当前已占用的矿格（任何命令/退出路径都要释放）
 var _anim_durations: Dictionary = {}         # 一次性动画时长缓存（mine_start / mine_end）
 var _swap_timer: float = 0.0                 # 资源交换检查计时（降频）
+var _fetch_target: Robot = null              # 主动取货的目标同伴（背包有货）；非空表示正在当「搬运工」
+var _fetch_timer: float = 0.0                # 本次取货已耗时（超时放弃，避免死追）
+
+const MINE_CRIT_CHANCE_PER_LEVEL := 0.1      # 挖掘能手每级暴击率（+10%）
 
 
 # ==================== 生命周期 ====================
@@ -79,9 +84,9 @@ func _on_tech_unlocked(tech_id: String) -> void:
 		_update_move_speed()
 
 
-# 根据「背包容量」科技等级刷新携带上限：基础 1，每级 +1
+# 根据「背包容量」科技等级刷新携带上限：基础 1，每级 +2
 func _update_carry_capacity() -> void:
-	carry_capacity = 1 + GameManager.get_tech_level("backpack_capacity")
+	carry_capacity = 1 + 2 * GameManager.get_tech_level("backpack_capacity")
 
 
 # 根据「采集速度」科技等级刷新每次挖矿耗时：基础 2，每级 -0.25（留最小间隔防止异常等级导致 0/负数）
@@ -166,6 +171,8 @@ func get_state_text() -> String:
 			return "挖矿中"
 		State.MOVING:
 			return "赶路（去矿点）"
+		State.FETCHING:
+			return "赶路（去取货）"
 		State.RETURNING:
 			return "赶路（回仓库）"
 		State.DEPOSITING:
@@ -174,9 +181,9 @@ func get_state_text() -> String:
 			return "等待指令"
 
 
-# 背包使用情况
+# 背包使用情况（显示向下取整：装到 1.3 显示 1）
 func get_backpack_text() -> String:
-	return "%d / %d" % [_carry_count, carry_capacity]
+	return "%d / %d" % [int(floor(_carry_count)), carry_capacity]
 
 
 # 取矿区代表点：优先用矿区中心，退化到节点自身坐标
@@ -196,6 +203,8 @@ func set_mine_target(ore: Node2D) -> void:
 	_remember_patch(patch)
 	_command_token += 1
 	_target_ore = ore
+	_fetch_target = null   # 手动指派挖矿时放弃正在进行的取货
+	_last_patch = patch
 	_state = State.MOVING
 	print("机器人 %s 收到挖矿任务：%s" % [name, ore.name])
 
@@ -206,13 +215,16 @@ func command_return(target_furnace: RefiningFurnace = null) -> void:
 	_release_claim()
 	_command_token += 1
 	_target_ore = null
+	_fetch_target = null
 	_enter_returning(target_furnace)
 	print("机器人 %s 收到手动返回仓库指令" % name)
 
 
 # 进入返回状态：选卸货炉子。
-# 指定了炉子就用指定的；否则解锁「优先排序能力」后每次选最近的，未解锁则沿用上一次的炉子
+# 指定了炉子就用指定的；否则未解锁「优先排序」时沿用上一次去过的炉子（只有它失效时才重选），
+# 解锁后每次都重新选最近的一座。
 func _enter_returning(target_furnace: RefiningFurnace = null) -> void:
+	_fetch_target = null   # 转去卸货时放弃取货目标，避免残留
 	if target_furnace != null and is_instance_valid(target_furnace):
 		_furnace = target_furnace
 	elif _has_priority_sort() or _furnace == null or not is_instance_valid(_furnace):
@@ -228,12 +240,14 @@ func _enter_returning(target_furnace: RefiningFurnace = null) -> void:
 # ==================== 每帧逻辑 ====================
 func _physics_process(delta: float) -> void:
 	# 机器人深度排序由父节点 robot_container 的 y_sort_enabled 自动处理（按 y 坐标，下方遮盖上方）
-	# 挖矿中不参与交换，避免干扰采矿循环；交换检查降频到 0.5 秒一次
-	if _state != State.MINING:
-		_swap_timer -= delta
-		if _swap_timer <= 0.0:
-			_swap_timer = SWAP_CHECK_INTERVAL
-			_try_resource_swap()
+	# 交换检查降频到 0.5 秒一次。
+	# 挖矿中的机器人也可把已挖到的矿转交给路过的空背包同伴：矿工留在矿区继续挖，由搬运工上门取货，
+	# 二者自然分工。转交不改动挖矿循环（_carry_count 减少后 while 仍会继续挖），也不改状态；
+	# 接收方仍排除 MINING / DEPOSITING，避免打断同伴的采矿或卸货循环（见 _find_swap_partner）。
+	_swap_timer -= delta
+	if _swap_timer <= 0.0:
+		_swap_timer = SWAP_CHECK_INTERVAL
+		_try_resource_swap()
 	match _state:
 		State.IDLE:
 			_tick_idle(delta)
@@ -248,15 +262,22 @@ func _physics_process(delta: float) -> void:
 		State.DEPOSITING:
 			velocity = Vector2.ZERO
 			move_and_slide()
+		State.FETCHING:
+			_tick_fetching(delta)
 
 
 # ==================== 避让：让机器人彼此推开，避免互相挤住 ====================
 const SEPARATION_RADIUS := 48.0           # 两机器人中心小于此距离时互相推开
 const SEPARATION_STRENGTH := 160.0        # 推开力度
-const DENSITY_RADIUS := 150.0             # 密度感知半径：统计此范围内的其他机器人
-const DENSITY_PENALTY := 120.0            # 每个附近机器人折算的等效距离代价
-const SWAP_RANGE := 60.0                  # 资源交换：与此距离内的同伴转交矿物
+const DENSITY_RADIUS := 220.0             # 密度感知半径：统计此范围内的其他机器人（已覆盖同一矿区内的同伴）
+const DENSITY_PENALTY := 400.0            # 每个附近机器人折算的等效距离代价（加大后单个矿区能容纳的机器人更少）
+const DENSITY_MAX_COUNT := 3              # 密度惩罚只累加前 N 个附近机器人，超出不再加权：保持「劝退」而非「禁入」
+const SWAP_RANGE := 140.0                 # 资源交换距离：原 60 太紧（避让半径已 48，赶路时几乎交不到一起），放宽后满载机器人路过时空背包同伴才接得住，自然分化出「搬运工」
 const SWAP_CHECK_INTERVAL := 0.5          # 资源交换检查间隔（秒），避免每帧 O(N²) 扫描
+const FETCH_RANGE := 600.0                # 主动取货时的搜索半径：这个范围内有「正在挖矿且有货」的同伴才去取货
+const FETCH_STOP_DIST := 96.0             # 取货时走到离同伴这么近就停住（留出避让半径，等对方把矿转过来）
+const FETCH_TIMEOUT := 6.0                # 单次取货的最长耗时，超过就放弃（对方冷却 / 目标中途失效的兜底）
+const FETCH_MIN_MINERS := 2               # 附近「正在挖矿」的同伴至少这么多，空背包机器人才去取货：避免把挖矿人手抽空
 
 
 # 每物理帧只查询一次 "robots" 分组供全脚本复用，避免避让/密度/交换各自反复分配数组
@@ -498,7 +519,8 @@ func _start_mining() -> void:
 			break
 		# mine() 返回 false 是正常情况（一次交互未累计到掉落），不能据此退出
 		if ore.mine():
-			_carry_count += 1
+			# 整铲装进背包，不再按剩余空位截断丢弃（超出的那点小数留在背包里）
+			_carry_count += _roll_mine_gain()
 			_spawn_mine_item()
 
 	if is_instance_valid(ore):
@@ -548,6 +570,23 @@ func _clear_claim_if(ore: Node2D, session: int) -> void:
 		_claimed_ore = null
 
 
+# 挖掘能手：机器人挖矿暴击判定（暴击时本次产出翻倍）
+func _roll_mine_crit() -> bool:
+	var lv: int = GameManager.get_tech_level("mine_crit")
+	if lv <= 0:
+		return false
+	return randf() < MINE_CRIT_CHANCE_PER_LEVEL * float(lv)
+
+
+# 本次掉矿实际获得的矿数：基础 1 + 矿物提纯加成，再叠加挖掘能手暴击翻倍
+# 带小数（如 1.3）：一格背包能直接装下，不再向下取整成整数
+func _roll_mine_gain() -> float:
+	var gain := 1.0 + GameManager.get_mine_yield_bonus()
+	if _roll_mine_crit():
+		gain *= 2.0
+	return gain
+
+
 # 挖到矿时：头顶弹出矿物图标，再飞进机器人身体（挂在机器人下，自动跟随移动）
 func _spawn_mine_item() -> void:
 	var item := Sprite2D.new()
@@ -593,12 +632,12 @@ func _start_deposit() -> void:
 
 
 # 读档恢复背包数量
-func get_carry_count() -> int:
+func get_carry_count() -> float:
 	return _carry_count
 
 
-func set_carry_count(value: int) -> void:
-	_carry_count = clampi(value, 0, carry_capacity)
+func set_carry_count(value: float) -> void:
+	_carry_count = maxf(0.0, value)
 
 
 # ==================== 工具：回到待机 / 回仓库 ====================
@@ -664,7 +703,7 @@ func _cleanup_known_patches() -> void:
 # 选下一个目标矿点：先按评分从已记忆矿区里选最优矿区，再在该矿区内挑一个空闲矿点
 func _find_next_ore() -> Node:
 	_cleanup_known_patches()
-	# 收集「有可用空闲矿点」的矿区（休耕意识下还要求耐久恢复到 80% 以上）
+	# 收集「有可用空闲矿点」的矿区（休耕意识下还要求耐久恢复到 70% 以上）
 	var candidates: Array = []
 	for p in known_patches:
 		if _has_fallow() and not _is_patch_ready(p):
@@ -674,9 +713,12 @@ func _find_next_ore() -> Node:
 			candidates.append({"patch": p, "ore": ore})
 	if candidates.is_empty():
 		return null
-	# 未解锁优先排序且未解锁密度感知时，选第一个可用矿区里的空闲矿点
+	# 「优先排序」和「密度感知」都没解锁时，率先回到最近一次去过的矿区（位置稳定、少跑路）
 	if not _has_priority_sort() and not _has_density():
-		return candidates[0]["ore"]
+		for c in candidates:
+			if c["patch"] == _last_patch:
+				return c["ore"]
+	# 解锁了「优先排序」或「密度感知」任一：每次都按评分重新挑
 	# 评分越低越优（按矿区评分，使机器人分散到不同矿区）
 	var best: Dictionary = candidates[0]
 	var best_score: float = _patch_score(best["patch"])
@@ -711,11 +753,13 @@ func _find_free_ore_in(patch: Node) -> Node2D:
 
 
 # 矿区评分：距离越近分越低；密度感知解锁后，附近机器人越多分越高（惩罚拥堵）
+# 惩罚是「软」的：只计入前 DENSITY_MAX_COUNT 个附近机器人，超出后不再累加，
+# 所以它只会让机器人优先去人少的矿区，不会把某个矿区变成绝对进不去。
 func _patch_score(patch: Node) -> float:
 	var pos: Vector2 = _get_patch_pos(patch)
 	var score: float = global_position.distance_to(pos)
 	if _has_density():
-		var nearby: int = _count_robots_near(pos, DENSITY_RADIUS)
+		var nearby: int = mini(_count_robots_near(pos, DENSITY_RADIUS), DENSITY_MAX_COUNT)
 		score += float(nearby) * DENSITY_PENALTY
 	return score
 
@@ -765,11 +809,16 @@ func _has_density() -> bool:
 	return GameManager.is_tech_unlocked("density")
 
 
+# 是否解锁「优先排序能力」科技
+func _has_priority_sort() -> bool:
+	return GameManager.is_tech_unlocked("priority_sort")
+
+
 # ==================== 资源交换：把矿物转交给附近空背包的同伴去回仓库 ====================
 func _try_resource_swap() -> void:
 	if not _has_resource_swap():
 		return
-	if _carry_count <= 0:
+	if _carry_count <= 0.0:
 		return
 	# 冷却期内不再交换，防止与同伴来回倒腾
 	if Time.get_ticks_msec() < _swap_cooldown_until:
@@ -777,10 +826,10 @@ func _try_resource_swap() -> void:
 	var other := _find_swap_partner()
 	if other == null:
 		return
-	var space: int = other.carry_capacity - other._carry_count
-	if space <= 0:
+	var space: float = float(other.carry_capacity) - other._carry_count
+	if space <= 0.0:
 		return
-	var give: int = min(_carry_count, space)
+	var give: float = minf(_carry_count, space)
 	_carry_count -= give
 	other._carry_count += give
 	# 双方进入冷却（2 秒），留出时间彼此分开
@@ -824,14 +873,99 @@ func _has_resource_swap() -> bool:
 	return GameManager.is_tech_unlocked("resource_swap")
 
 
-# 矿区耐久是否 >= 80%（休耕意识下才会选为目标）；传入 Ore 时自动取其所属矿区
+# 统计附近（FETCH_RANGE 内）正在挖矿的同伴数量：取货的人数门槛用
+func _count_nearby_miners() -> int:
+	var count := 0
+	var r2: float = FETCH_RANGE * FETCH_RANGE
+	for r in _get_robots():
+		if r == self or not is_instance_valid(r):
+			continue
+		var other := r as Robot
+		if other == null or other._state != State.MINING:
+			continue
+		if global_position.distance_squared_to(other.global_position) <= r2:
+			count += 1
+	return count
+
+
+# ==================== 主动取货（搬运工） ====================
+# 解锁「资源交换」后，背包空的机器人会主动去寻找附近「正在挖矿且有货」的同伴取货：
+# 走到交换距离内停住，由持货方每 0.5 秒一次的 _try_resource_swap 把矿转交过来
+# （接收方条件：货更少、背包有余量），转交成功后对方调用 command_return()，
+# 本机器人随即切到 RETURNING 去卸货，自然成为「搬运工」；矿工留在原地继续挖。
+# 只认「正在挖矿」的同伴：它们原地不动，取货可靠；也顺手排除了回程卸货的同伴（其货已在回炉路上）。
+func _find_fetch_target() -> Robot:
+	var now := Time.get_ticks_msec()
+	var best: Robot = null
+	var best_dist2: float = FETCH_RANGE * FETCH_RANGE
+	for r in _get_robots():
+		if r == self or not is_instance_valid(r):
+			continue
+		var other := r as Robot
+		if other == null:
+			continue
+		# 只取「正在挖矿且有货」的同伴；没有这样的同伴时返回 null，机器人转去挖矿，
+		# 于是天然分化成一部分挖矿、一部分搬运，而不会全部涌去取货
+		if other._state != State.MINING or other._carry_count < 1.0:
+			continue
+		# 对方刚交换完还在冷却：暂时取不到，跳过以免白跑
+		if other._swap_cooldown_until > now:
+			continue
+		var d2 := global_position.distance_squared_to(other.global_position)
+		if d2 <= best_dist2:
+			best_dist2 = d2
+			best = other
+	return best
+
+
+# 开始取货：锁定目标同伴，切到 FETCHING
+func _start_fetch(giver: Robot) -> void:
+	_release_claim()
+	_command_token += 1
+	_target_ore = null
+	_fetch_target = giver
+	_fetch_timer = 0.0
+	_state = State.FETCHING
+
+
+# 取货中：靠近目标，进入交换距离后停住等对方转交
+func _tick_fetching(delta: float) -> void:
+	_fetch_timer += delta
+	var giver := _fetch_target
+	# 目标消失 / 不再是挖矿状态 / 已被别人取空：放弃取货，回去挖矿或回仓
+	if giver == null or not is_instance_valid(giver) \
+	or giver._state != State.MINING or giver._carry_count < 1.0:
+		_fetch_target = null
+		_go_idle_or_return()
+		return
+	# 超时兜底（对方长时间冷却等）：放弃，别杵着
+	if _fetch_timer >= FETCH_TIMEOUT:
+		_fetch_target = null
+		_go_idle_or_return()
+		return
+
+	var dist := global_position.distance_to(giver.global_position)
+	if dist <= FETCH_STOP_DIST:
+		# 到位：停住，等持货方通过 _try_resource_swap 把矿转过来
+		velocity = Vector2.ZERO
+		move_and_slide()
+		_play_anim("idle")
+		return
+
+	var dir := _apply_furnace_avoidance((giver.global_position - global_position).normalized())
+	velocity = dir * move_speed + _get_separation_velocity()
+	move_and_slide()
+	_update_walk_anim(dir)
+
+
+# 矿区耐久是否 >= 70%（休耕意识下才会选为目标）；传入 Ore 时自动取其所属矿区
 func _is_patch_ready(node: Node) -> bool:
 	var patch: Node = node
 	if node.has_method("get_patch"):
 		patch = node.get_patch()
 	if patch == null or not patch.has_method("get_durability_ratio"):
 		return true
-	return patch.get_durability_ratio() >= 0.8
+	return patch.get_durability_ratio() >= 0.7
 
 
 # 矿点耐久是否 <= 15%（休耕意识下挖矿中跌破即放弃）
@@ -847,24 +981,26 @@ func _has_fallow() -> bool:
 	return GameManager.is_tech_unlocked("fallow")
 
 
-# 是否解锁「优先排序能力」科技
-func _has_priority_sort() -> bool:
-	return GameManager.is_tech_unlocked("priority_sort")
-
-
-# IDLE 时自动决策：解锁 memory_auto 后，背包满自动回仓，有空间自动去挖矿
+# IDLE 时自动决策：解锁 memory_auto 后，背包满自动回仓，空背包去取货 / 挖矿
 func _auto_decide() -> void:
 	if not _has_auto_return():
 		return
 	if _carry_count >= carry_capacity:
 		_enter_returning()
 		return
-	if _carry_count < carry_capacity:
-		var ore := _find_next_ore()
-		if ore != null:
-			_command_token += 1
-			_target_ore = ore
-			_state = State.MOVING
+	# 背包完全空 + 已解锁「资源交换」：附近「正在挖矿」的同伴达到 FETCH_MIN_MINERS 才去取货（当搬运工），
+	# 否则一律回去挖矿——避免空背包机器人全涌去取货、把矿工人数抽空
+	if _carry_count <= 0.0 and _has_resource_swap() and _count_nearby_miners() >= FETCH_MIN_MINERS:
+		var giver := _find_fetch_target()
+		if giver != null:
+			_start_fetch(giver)
+			return
+	var ore := _find_next_ore()
+	if ore != null:
+		_command_token += 1
+		_target_ore = ore
+		_last_patch = ore.get_patch() if ore.has_method("get_patch") else null
+		_state = State.MOVING
 
 
 # ==================== 播放动画（避免每帧重播） ====================
@@ -879,11 +1015,15 @@ func _play_anim(anim_name: String) -> void:
 func _update_walk_anim(dir: Vector2) -> void:
 	if anim == null:
 		return
-	if abs(dir.x) > 0.01:
-		anim.flip_h = dir.x < 0
+	# 背面贴图（walk_back）的基础朝向与正面贴图相反，左右翻转条件要取反，
+	# 否则「左后方 / 右后方」的斜向移动会左右弄反。
 	if dir.y < 0.0:
+		if abs(dir.x) > 0.01:
+			anim.flip_h = dir.x > 0
 		_play_anim("walk_back")
 	else:
+		if abs(dir.x) > 0.01:
+			anim.flip_h = dir.x < 0
 		_play_anim("walk")
 
 

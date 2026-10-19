@@ -183,11 +183,12 @@ func _process(delta: float) -> void:
 		_update_visual()
 
 
-# 实际恢复速度：每级「资源再生速度」科技 ×2.0，
-# 5 级封顶时总倍率 = 32（1.0 → 2 → 4 → 8 → 16 → 32）
+# 实际恢复速度：每级「资源再生速度」科技 ×1.5，
+# 5 级封顶时总倍率 = 7.59（1.0 → 1.5 → 2.25 → 3.375 → 5.06 → 7.59）
+# 放缓恢复速度，使矿点会真正被采空、休耕意识才有发挥空间。
 func _get_regen_rate() -> float:
 	var level := GameManager.get_tech_level("regen_speed")
-	return regen_per_second * pow(2.0, float(level))
+	return regen_per_second * pow(1.5, float(level))
 
 
 # 在矿点上方绘制耐久条

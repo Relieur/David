@@ -15,6 +15,8 @@ const ORE_TEXTURES: Array[Texture2D] = [
 var _patch: Node2D = null
 var _miner: Node = null              # 当前占据这个格子的机器人（一个格同时只能一个机器人采）
 var _miner_token: int = 0            # 占用会话令牌：区分同一机器人的新旧采矿会话，避免旧协程误释放
+var _mouse_held := false              # 玩家是否按住左键开采本矿石
+var _mouse_over := false              # 指针是否悬停在本矿石上
 
 
 func _ready() -> void:
@@ -23,6 +25,10 @@ func _ready() -> void:
 	sprite_2d.texture = ORE_TEXTURES[randi() % ORE_TEXTURES.size()]
 	if not input_event.is_connected(_on_input_event):
 		input_event.connect(_on_input_event)
+	if not mouse_entered.is_connected(_on_mouse_entered):
+		mouse_entered.connect(_on_mouse_entered)
+	if not mouse_exited.is_connected(_on_mouse_exited):
+		mouse_exited.connect(_on_mouse_exited)
 
 
 # 点击矿石：若已选中机器人则派它去挖（不计入玩家交互），否则玩家自行开采一次
@@ -41,7 +47,28 @@ func _on_input_event(_viewport, event, _shape_idx):
 			# 已经指定目的地，自动取消选中，避免下一次点矿仍派给同一机器人
 			GameManager.deselect_robot()
 		else:
+			# 按住左键持续挖矿：_process 里会按冷却间隔反复调用 player_mine()
+			_mouse_held = true
 			player_mine()
+
+
+func _on_mouse_entered() -> void:
+	_mouse_over = true
+
+
+func _on_mouse_exited() -> void:
+	_mouse_over = false
+	_mouse_held = false
+
+
+# 按住左键持续挖矿：松开左键或指针移出矿石即停止
+func _process(_delta: float) -> void:
+	if not _mouse_held:
+		return
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or not _mouse_over:
+		_mouse_held = false
+		return
+	player_mine()
 
 
 # 判断某世界坐标是否被掉落物覆盖（掉落物优先级高于挖矿）
